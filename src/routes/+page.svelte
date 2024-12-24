@@ -1,6 +1,7 @@
 <script>
   import { v4 as uuid } from "uuid";
   import { tick } from "svelte";
+  import { base } from "$app/paths";
 
   let chats = [
     {
@@ -84,7 +85,7 @@
           }}
         >
           <img
-            src="/icons/sidebar.svg"
+            src="{base}/icons/sidebar.svg"
             alt="Icon of Sidebar"
             title="Hide sidebar"
             style="width: 20px; height: 20px;"
@@ -106,7 +107,7 @@
             }}
           >
             <img
-              src="/icons/new_chat.svg"
+              src="{base}/icons/new_chat.svg"
               alt="New Chat Icon"
               title="New chat"
               style="width: 20px; height: 20px;"
