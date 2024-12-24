@@ -127,6 +127,11 @@
 </div>
 
 <style>
+  :global(body) {
+    margin:0;
+    padding:0
+  }
+
   .container {
     display: flex;
     height: 100vh;
@@ -166,6 +171,8 @@
     background-color: rgb(244, 244, 244);
     color: black;
     border: none;
+    /* border-right: 5px solid transparent;
+    border-bottom: 5px solid transparent; */
     border-radius: 5px;
     cursor: pointer;
   }
