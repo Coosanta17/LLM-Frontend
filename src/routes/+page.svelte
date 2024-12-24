@@ -70,9 +70,9 @@
   }
 </script>
 
-<div class="container" style="grid-template-columns: {isSidebarVisible ? '15% 1fr' : '74px 1fr'};">
+<div class="container {isSidebarVisible ? '' : 'sidebar-hidden'}">
   <!-- Sidebar -->
-  <div class="sidebar {isSidebarVisible ? '' : 'hidden'}">
+  <div class="sidebar">
     <div class="sidebar-actions-menu">
       <div class="sidebar-hide">
         <button
@@ -168,9 +168,15 @@
 
   .container {
     display: grid;
+    grid-template-columns: 15% 1fr;
     height: 100vh;
     width: 100vw;
     font-family: Arial, sans-serif;
+    transition: grid-template-columns 0.3s ease;
+  }
+
+  .container.sidebar-hidden {
+    grid-template-columns: 74px 1fr;
   }
 
   .sidebar {
@@ -178,11 +184,6 @@
     border-right: 1px solid rgb(221, 221, 221);
     overflow-y: auto;
     padding: 1%;
-    transition: width 0.8s ease;
-  }
-
-  .sidebar.hidden {
-    width: 76px;
   }
 
   .sidebar button {
