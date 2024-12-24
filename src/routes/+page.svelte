@@ -13,6 +13,7 @@
 
   let selectedChat = chats[0];
   let newMessage = "";
+  let isSidebarVisible = true;
 
   /**
    * @param {{ id: string, name: string, systemPrompt: string, messages: { user: string, content: string }[] }} chat
@@ -63,27 +64,56 @@
     ];
     await tick();
   }
+
+  function hideSidebar() {
+    isSidebarVisible = !isSidebarVisible;
+  }
 </script>
 
 <div class="container">
   <!-- Sidebar -->
-  <div class="sidebar">
-    <div class="new-chat">
-      <button
-        on:click={() => {
-          newChat();
-          selectChat(chats[chats.length - 1]);
-        }}
-        on:keydown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
+  <div class="sidebar {isSidebarVisible ? '' : 'hidden'}">
+    <div class="sidebar-actions-menu">
+      <div class="sidebar-hide">
+        <button
+          on:click={hideSidebar}
+          on:keydown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              hideSidebar();
+            }
+          }}
+        >
+          <img
+            src="/icons/sidebar.svg"
+            alt="Icon of Sidebar"
+            title="Hide sidebar"
+            style="width: 20px; height: 20px;"
+          />
+        </button>
+      </div>
+      <div class="new-chat">
+        <button
+          on:click={() => {
             newChat();
             selectChat(chats[chats.length - 1]);
-          }
-        }}
-      >
-        "New Chat"
-      </button>
+          }}
+          on:keydown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              newChat();
+              selectChat(chats[chats.length - 1]);
+            }
+          }}
+        >
+          <img
+            src="/icons/new_chat.svg"
+            alt="New Chat Icon"
+            title="New chat"
+            style="width: 20px; height: 20px;"
+          />
+        </button>
+      </div>
     </div>
+
     {#each chats as chat (chat.id)}
       <button
         class="sidebar-item {selectedChat.id === chat.id ? 'active' : ''}"
@@ -128,8 +158,8 @@
 
 <style>
   :global(body) {
-    margin:0;
-    padding:0
+    margin: 0;
+    padding: 0;
   }
 
   .container {
@@ -140,10 +170,16 @@
   }
 
   .sidebar {
-    width: calc(25% - 1px);
+    width: 20%;
     background-color: rgb(244, 244, 244);
     border-right: 1px solid rgb(221, 221, 221);
     overflow-y: auto;
+    padding: 1%;
+    transition: transform 0.3s ease;
+  }
+
+  .sidebar.hidden {
+    transform: translateX(-100%);
   }
 
   .sidebar button {
@@ -152,7 +188,7 @@
     padding: 10px 20px;
     background-color: rgb(251, 251, 251);
     color: black;
-    border: none;
+    border: transparent;
     border-radius: 5px;
     cursor: pointer;
     text-align: left;
@@ -166,23 +202,39 @@
     background-color: rgb(220, 220, 220);
   }
 
+  .sidebar-actions-menu {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    margin-bottom: 5px;
+  }
+
   .new-chat button {
-    padding: 10px 20px;
     background-color: rgb(244, 244, 244);
     color: black;
-    border: none;
-    /* border-right: 5px solid transparent;
-    border-bottom: 5px solid transparent; */
+    border: transparent;
     border-radius: 5px;
     cursor: pointer;
+    flex-direction: row-reverse;
   }
 
   .new-chat button:hover {
     background-color: rgb(200, 200, 200);
   }
 
+  .sidebar-hide button {
+    background-color: rgb(244, 244, 244);
+    color: black;
+    border: transparent;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  .sidebar-hide button:hover {
+    background-color: rgb(200, 200, 200);
+  }
+
   .chat {
-    width: 75%;
     display: flex;
     flex-direction: column;
   }
