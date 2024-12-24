@@ -70,7 +70,7 @@
   }
 </script>
 
-<div class="container">
+<div class="container" style="grid-template-columns: {isSidebarVisible ? '15% 1fr' : '74px 1fr'};">
   <!-- Sidebar -->
   <div class="sidebar {isSidebarVisible ? '' : 'hidden'}">
     <div class="sidebar-actions-menu">
@@ -91,41 +91,45 @@
           />
         </button>
       </div>
-      <div class="new-chat">
-        <button
-          on:click={() => {
-            newChat();
-            selectChat(chats[chats.length - 1]);
-          }}
-          on:keydown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
+      {#if isSidebarVisible}
+        <div class="new-chat">
+          <button
+            on:click={() => {
               newChat();
               selectChat(chats[chats.length - 1]);
-            }
-          }}
-        >
-          <img
-            src="/icons/new_chat.svg"
-            alt="New Chat Icon"
-            title="New chat"
-            style="width: 20px; height: 20px;"
-          />
-        </button>
-      </div>
+            }}
+            on:keydown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                newChat();
+                selectChat(chats[chats.length - 1]);
+              }
+            }}
+          >
+            <img
+              src="/icons/new_chat.svg"
+              alt="New Chat Icon"
+              title="New chat"
+              style="width: 20px; height: 20px;"
+            />
+          </button>
+        </div>
+      {/if}
     </div>
 
-    {#each chats as chat (chat.id)}
-      <button
-        class="sidebar-item {selectedChat.id === chat.id ? 'active' : ''}"
-        on:click={() => selectChat(chat)}
-        on:keydown={(e) =>
-          (e.key === "Enter" || e.key === " ") && selectChat(chat)}
-        role="tab"
-        aria-selected={selectedChat.id === chat.id}
-      >
-        {chat.name}
-      </button>
-    {/each}
+    {#if isSidebarVisible}
+      {#each chats as chat (chat.id)}
+        <button
+          class="sidebar-item {selectedChat.id === chat.id ? 'active' : ''}"
+          on:click={() => selectChat(chat)}
+          on:keydown={(e) =>
+            (e.key === "Enter" || e.key === " ") && selectChat(chat)}
+          role="tab"
+          aria-selected={selectedChat.id === chat.id}
+        >
+          {chat.name}
+        </button>
+      {/each}
+    {/if}
   </div>
 
   <!-- Chat Interface -->
@@ -163,23 +167,22 @@
   }
 
   .container {
-    display: flex;
+    display: grid;
     height: 100vh;
     width: 100vw;
     font-family: Arial, sans-serif;
   }
 
   .sidebar {
-    width: 20%;
     background-color: rgb(244, 244, 244);
     border-right: 1px solid rgb(221, 221, 221);
     overflow-y: auto;
     padding: 1%;
-    transition: transform 0.3s ease;
+    transition: width 0.8s ease;
   }
 
   .sidebar.hidden {
-    transform: translateX(-100%);
+    width: 76px;
   }
 
   .sidebar button {
@@ -204,9 +207,8 @@
 
   .sidebar-actions-menu {
     display: flex;
-    flex-direction: row;
-    gap: 10px;
-    margin-bottom: 5px;
+    justify-content: space-between;
+    margin: 8px;
   }
 
   .new-chat button {
@@ -215,7 +217,6 @@
     border: transparent;
     border-radius: 5px;
     cursor: pointer;
-    flex-direction: row-reverse;
   }
 
   .new-chat button:hover {
