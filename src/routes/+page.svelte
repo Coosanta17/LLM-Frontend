@@ -243,7 +243,7 @@
 
   .messages {
     flex: 1;
-    padding: 15px;
+    padding: 25px 30px 15px 30px;
     overflow-y: auto;
     background-color: #fafafa;
     border-bottom: 1px solid #ddd;
