@@ -19,8 +19,10 @@
   /**
    * @param {{ id: string, name: string, systemPrompt: string, messages: { user: string, content: string }[] }} chat
    */
-  function selectChat(chat) {
+  async function selectChat(chat) {
     selectedChat = chat;
+    await tick();
+    scrollToBottom();
   }
 
   async function sendMessage() {
@@ -165,6 +167,8 @@
   :global(body) {
     margin: 0;
     padding: 0;
+    height: 100%;
+    overflow: hidden;
   }
 
   .container {
@@ -174,6 +178,7 @@
     width: 100vw;
     font-family: Arial, sans-serif;
     transition: grid-template-columns 0.3s ease;
+    overflow: hidden;
   }
 
   .container.sidebar-hidden {
@@ -240,6 +245,8 @@
   .chat {
     display: flex;
     flex-direction: column;
+    height: 100%;
+    overflow: hidden;
   }
 
   .messages {
@@ -248,6 +255,7 @@
     overflow-y: auto;
     background-color: #fafafa;
     border-bottom: 1px solid #ddd;
+    max-height: 100%;
   }
 
   .message {
@@ -255,7 +263,7 @@
     padding: 10px;
     border-radius: 5px;
     max-width: 70%;
-    word-break: break-all;
+    word-break: break-word;
   }
 
   .message.assistant {
@@ -266,7 +274,8 @@
   .message.user {
     background-color: #e0e0e0;
     margin-left: auto;
-    text-align: right;
+    text-align: left;
+    max-width: 60%;
   }
 
   .input-container {
