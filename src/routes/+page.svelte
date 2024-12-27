@@ -1,10 +1,23 @@
-<script>
-  import { v4 as uuid } from "uuid";
+<script lang="ts">
+  import { stringify, v4 as uuid } from "uuid";
   import { tick } from "svelte";
   import { base } from "$app/paths";
   import Markdown from "svelte-markdown";
   import remarkGfm from "remark-gfm";
   import rehypeSanitize from "rehype-sanitize";
+    import type { UUIDTypes } from "uuid";
+
+  type Message = {
+    user: "Assistant" | "User" | "System",
+    content: string,
+  }
+
+  type Chat = {
+    id: UUIDTypes,
+    name: string,
+    systemPrompt: string,
+    messages: Message[]; 
+  }
 
   let chats = [
     {
@@ -25,7 +38,20 @@
       [
         rehypeSanitize,
         {
-          allowDangerousHtml: false,
+          allowDangerousHtml: true,
+          tagNames: [
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "ul",
+            "ol",
+            "li",
+            "blockquote",
+          ],
+          attributes: { "*": ["class", "id", "style"] }, // Allow styles for better display
         },
       ],
     ],
@@ -54,7 +80,14 @@
   }
 
   async function runAssistantResponse() {
-    const response = `You said: "${selectedChat.messages[selectedChat.messages.length - 1].content}"`; // Example response
+    // const response = `You said: \"${selectedChat.messages[selectedChat.messages.length - 1].content}\"`; // Example response
+    const response = `
+# Heading Example
+- List Item 1
+- List Item 2
+
+> This is a quote
+`; // debug
     selectedChat.messages = [
       ...selectedChat.messages,
       { user: "Assistant", content: response },
@@ -159,7 +192,10 @@
       {#each selectedChat.messages as message}
         <div class="message {message.user.toLowerCase()}">
           {#if message.user === "Assistant"}
-            <Markdown options={markdownOptions} source={message.content} />
+            <Markdown
+              options={markdownOptions}
+              source={String(message.content)}
+            />
           {:else}
             <span>{message.content}</span>
           {/if}
@@ -284,46 +320,6 @@
   .message.assistant {
     background-color: transparent;
     text-align: left;
-  }
-
-  .message.assistant h1,
-  .message.assistant h2,
-  .message.assistant h3,
-  .message.assistant h4,
-  .message.assistant h5,
-  .message.assistant h6 {
-    margin: 0;
-    padding: 0;
-  }
-
-  .message.assistant h1 {
-    font-size: 2em;
-    margin-bottom: 0.5em;
-  }
-
-  .message.assistant h2 {
-    font-size: 1.5em;
-    margin-bottom: 0.75em;
-  }
-
-  .message.assistant h3 {
-    font-size: 1.25em;
-    margin-bottom: 1em;
-  }
-
-  .message.assistant h4 {
-    font-size: 1em;
-    margin-bottom: 1.25em;
-  }
-
-  .message.assistant h5 {
-    font-size: 0.875em;
-    margin-bottom: 1.5em;
-  }
-
-  .message.assistant h6 {
-    font-size: 0.75em;
-    margin-bottom: 1.75em;
   }
 
   .message.user {
