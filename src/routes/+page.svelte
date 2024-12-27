@@ -2,11 +2,14 @@
   import { v4 as uuid } from "uuid";
   import { tick } from "svelte";
   import { base } from "$app/paths";
+  import Markdown from "svelte-markdown";
+  import remarkGfm from "remark-gfm";
+  import rehypeSanitize from "rehype-sanitize";
 
   let chats = [
     {
       id: uuid(),
-      name: "Chat 1",
+      name: "New Chat",
       systemPrompt: "You are a helpful assistant.",
       messages: [{ user: "Assistant", content: "How can I help you?" }],
     },
@@ -15,6 +18,18 @@
   let selectedChat = chats[0];
   let newMessage = "";
   let isSidebarVisible = true;
+
+  const markdownOptions = {
+    remarkPlugins: [remarkGfm],
+    rehypePlugins: [
+      [
+        rehypeSanitize,
+        {
+          allowDangerousHtml: false,
+        },
+      ],
+    ],
+  };
 
   /**
    * @param {{ id: string, name: string, systemPrompt: string, messages: { user: string, content: string }[] }} chat
@@ -144,7 +159,7 @@
       {#each selectedChat.messages as message}
         <div class="message {message.user.toLowerCase()}">
           {#if message.user === "Assistant"}
-            {message.content}
+            <Markdown options={markdownOptions} source={message.content} />
           {:else}
             <span>{message.content}</span>
           {/if}
@@ -269,6 +284,46 @@
   .message.assistant {
     background-color: transparent;
     text-align: left;
+  }
+
+  .message.assistant h1,
+  .message.assistant h2,
+  .message.assistant h3,
+  .message.assistant h4,
+  .message.assistant h5,
+  .message.assistant h6 {
+    margin: 0;
+    padding: 0;
+  }
+
+  .message.assistant h1 {
+    font-size: 2em;
+    margin-bottom: 0.5em;
+  }
+
+  .message.assistant h2 {
+    font-size: 1.5em;
+    margin-bottom: 0.75em;
+  }
+
+  .message.assistant h3 {
+    font-size: 1.25em;
+    margin-bottom: 1em;
+  }
+
+  .message.assistant h4 {
+    font-size: 1em;
+    margin-bottom: 1.25em;
+  }
+
+  .message.assistant h5 {
+    font-size: 0.875em;
+    margin-bottom: 1.5em;
+  }
+
+  .message.assistant h6 {
+    font-size: 0.75em;
+    margin-bottom: 1.75em;
   }
 
   .message.user {
