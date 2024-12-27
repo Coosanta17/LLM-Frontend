@@ -5,19 +5,19 @@
   import Markdown from "svelte-markdown";
   import remarkGfm from "remark-gfm";
   import rehypeSanitize from "rehype-sanitize";
-    import type { UUIDTypes } from "uuid";
+  // import type { UUIDTypes } from "uuid";
 
-  type Message = {
-    user: "Assistant" | "User" | "System",
-    content: string,
-  }
+  // type Message = {
+  //   user: "Assistant" | "User" | "System";
+  //   content: string;
+  // };
 
-  type Chat = {
-    id: UUIDTypes,
-    name: string,
-    systemPrompt: string,
-    messages: Message[]; 
-  }
+  // type Chat = {
+  //   id: UUIDTypes;
+  //   name: string;
+  //   systemPrompt: string;
+  //   messages: Message[];
+  // };
 
   let chats = [
     {
