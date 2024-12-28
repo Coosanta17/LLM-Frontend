@@ -64,17 +64,30 @@
   };
 
   async function selectChat(chat: Chat) {
-    selectedChat = chat;
+    // Set selectedChat from the chats array to ensure proper reference
+    const foundChat = chats.find((c) => c.id === chat.id);
+    if (foundChat) {
+      selectedChat = foundChat;
+    } else {
+      console.error("Chat not found");
+    }
     await tick();
     scrollToBottom();
   }
 
   async function addMessage(chat: Chat, message: Message) {
-    chat.messages = [...chat.messages, message];
-    selectedChat = { ...chat }; // Ensure Svelte recognizes the update
-    chats = [...chats]; // Update the chats array
-  }
+    const chatIndex = chats.findIndex((c) => c.id === chat.id);
 
+    chats[chatIndex] = {
+      ...chat,
+      messages: [...chat.messages, message],
+    };
+
+    selectedChat = chats[chatIndex];
+
+    // Trigger Svelte reactivity
+    chats = [...chats];
+  }
   async function sendMessage() {
     if (newMessage.trim()) {
       addMessage(selectedChat, {
@@ -134,7 +147,7 @@
   function newChatButtonPressed() {
     createNewChat(defaultSystemPrompt);
     const newChat: Chat = chats[chats.length - 1];
-    addMessage(newChat, defaultStartingMessage)
+    addMessage(newChat, defaultStartingMessage);
     selectChat(newChat);
   }
 </script>
