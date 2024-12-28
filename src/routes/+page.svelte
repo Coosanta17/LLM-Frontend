@@ -149,6 +149,7 @@
           />
         </button>
       </div>
+
       {#if isSidebarVisible}
         <!-- New Chat Button -->
         <div class="new-chat">
@@ -172,51 +173,53 @@
             />
           </button>
         </div>
-
-        <!-- Select Chats -->
-        {#each chats as chat (chat.id)}
-          <button
-            class="sidebar-item {selectedChat.id === chat.id ? 'active' : ''}"
-            on:click={() => selectChat(chat)}
-            on:keydown={(e) =>
-              (e.key === "Enter" || e.key === " ") && selectChat(chat)}
-            role="tab"
-            aria-selected={selectedChat.id === chat.id}
-          >
-            {chat.name}
-          </button>
-        {/each}
       {/if}
     </div>
 
-    <!-- Chat Interface -->
-    <div class="chat">
-      <div class="messages">
-        {#if selectedChat.messages.length === 0}
-          <p>No messages yet.</p>
-        {/if}
-        {#each selectedChat.messages as message}
-          <div class="message {message.user.toLowerCase()}">
-            {#if message.user === "Assistant"}
-              <Markdown
-                options={markdownOptions}
-                source={String(message.content)}
-              />
-            {:else}
-              <span>{message.content}</span>
-            {/if}
-          </div>
-        {/each}
-      </div>
-      <div class="input-container">
-        <input
-          type="text"
-          bind:value={newMessage}
-          placeholder="Type a message..."
-          on:keydown={(e) => e.key === "Enter" && sendMessage()}
-        />
-        <button on:click={sendMessage}>Send</button>
-      </div>
+    {#if isSidebarVisible}
+      <!-- Select Chats -->
+      {#each chats as chat (chat.id)}
+        <button
+          class="sidebar-item {selectedChat.id === chat.id ? 'active' : ''}"
+          on:click={() => selectChat(chat)}
+          on:keydown={(e) =>
+            (e.key === "Enter" || e.key === " ") && selectChat(chat)}
+          role="tab"
+          aria-selected={selectedChat.id === chat.id}
+        >
+          {chat.name}
+        </button>
+      {/each}
+    {/if}
+  </div>
+
+  <!-- Chat Interface -->
+  <div class="chat">
+    <div class="messages">
+      {#if selectedChat.messages.length === 0}
+        <p>No messages yet.</p>
+      {/if}
+      {#each selectedChat.messages as message}
+        <div class="message {message.user.toLowerCase()}">
+          {#if message.user === "Assistant"}
+            <Markdown
+              options={markdownOptions}
+              source={String(message.content)}
+            />
+          {:else}
+            <span>{message.content}</span>
+          {/if}
+        </div>
+      {/each}
+    </div>
+    <div class="input-container">
+      <input
+        type="text"
+        bind:value={newMessage}
+        placeholder="Type a message..."
+        on:keydown={(e) => e.key === "Enter" && sendMessage()}
+      />
+      <button on:click={sendMessage}>Send</button>
     </div>
   </div>
 </div>
