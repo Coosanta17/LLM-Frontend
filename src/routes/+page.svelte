@@ -28,13 +28,13 @@
   const defaultSystemPrompt = "You are a helpful assistant.";
 
   let chats: Chat[] = [];
+  let selectedChat: Chat;
+  let newMessage = "";
+  let isSidebarVisible = true;
 
   createNewChat(defaultSystemPrompt);
   addMessage(chats[0], defaultStartingMessage);
-
-  let selectedChat = chats[0];
-  let newMessage = "";
-  let isSidebarVisible = true;
+  selectedChat = chats[0];
 
   const markdownOptions = {
     remarkPlugins: [remarkGfm],
@@ -71,6 +71,8 @@
 
   async function addMessage(chat: Chat, message: Message) {
     chat.messages = [...chat.messages, message];
+    selectedChat = { ...chat }; // Ensure Svelte recognizes the update
+    chats = [...chats]; // Update the chats array
   }
 
   async function sendMessage() {
@@ -107,6 +109,8 @@
     const messagesContainer = document.querySelector(".messages");
     if (messagesContainer) {
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    } else {
+      console.warn("Messages container not found");
     }
   }
 
@@ -125,6 +129,13 @@
 
   function hideSidebar() {
     isSidebarVisible = !isSidebarVisible;
+  }
+
+  function newChatButtonPressed() {
+    createNewChat(defaultSystemPrompt);
+    const newChat: Chat = chats[chats.length - 1];
+    addMessage(newChat, defaultStartingMessage)
+    selectChat(newChat);
   }
 </script>
 
@@ -154,15 +165,9 @@
         <!-- New Chat Button -->
         <div class="new-chat">
           <button
-            on:click={() => {
-              createNewChat(defaultSystemPrompt);
-              selectChat(chats[chats.length - 1]);
-            }}
+            on:click={() => newChatButtonPressed()}
             on:keydown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                createNewChat(defaultSystemPrompt);
-                selectChat(chats[chats.length - 1]);
-              }
+              if (e.key === "Enter" || e.key === " ") newChatButtonPressed();
             }}
           >
             <img
