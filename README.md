@@ -6,5 +6,5 @@ See at https://chat.coosanta.net/
 
 ## Credits
 
-- "Write SVG Vector 40": https://www.svgrepo.com/svg/503122/write (MPL Licence)
-- 
+- "Plus SVG Vector": https://www.svgrepo.com/svg/503075/plus by Yandex (MLP Licence)
+- "Sidebar SVG Vector": https://www.svgrepo.com/svg/503092/sidebar by Yandex (MLP Licence)
