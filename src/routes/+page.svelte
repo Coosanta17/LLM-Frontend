@@ -6,8 +6,10 @@
   import remarkGfm from "remark-gfm";
   import rehypeSanitize from "rehype-sanitize";
 
+  type User = "Assistant" | "User" | "System";
+
   type Message = {
-    user: "Assistant" | "User" | "System";
+    user: User;
     content: string;
   };
 
@@ -18,16 +20,17 @@
     messages: Message[];
   };
 
-  const newChat: Chat = {
-    id: "",
-    name: "New Chat",
-    systemPrompt: "You are a helpful assistant.",
-    messages: [{ user: "Assistant", content: "How can I help you?" }],
+  const defaultStartingMessage: Message = {
+    user: "Assistant",
+    content: "How can I help you?",
   };
 
-  let chats: Chat[] = [
-    newChat, // TODO: fix asap
-  ];
+  const defaultSystemPrompt = "You are a helpful assistant.";
+
+  let chats: Chat[] = [];
+
+  createNewChat(defaultSystemPrompt);
+  addMessage(chats[0], defaultStartingMessage);
 
   let selectedChat = chats[0];
   let newMessage = "";
@@ -52,7 +55,9 @@
             "li",
             "blockquote",
           ],
-          attributes: { "*": ["class", "id", "style"] }, // Allow styles for better display
+          attributes: {
+            "*": ["class", "id", "style"],
+          }, // Allow styles for better display
         },
       ],
     ],
@@ -64,12 +69,16 @@
     scrollToBottom();
   }
 
+  async function addMessage(chat: Chat, message: Message) {
+    chat.messages = [...chat.messages, message];
+  }
+
   async function sendMessage() {
     if (newMessage.trim()) {
-      selectedChat.messages = [
-        ...selectedChat.messages,
-        { user: "User", content: newMessage },
-      ];
+      addMessage(selectedChat, {
+        user: "User",
+        content: newMessage,
+      });
       newMessage = "";
       await tick();
       scrollToBottom();
@@ -86,10 +95,10 @@
 
 > This is a quote
 `; // debug
-    selectedChat.messages = [
-      ...selectedChat.messages,
-      { user: "Assistant", content: response },
-    ];
+    addMessage(selectedChat, {
+      user: "Assistant",
+      content: response,
+    });
     await tick();
     scrollToBottom();
   }
@@ -101,14 +110,14 @@
     }
   }
 
-  async function createNewChat() {
+  async function createNewChat(inputSystemPrompt: string) {
     chats = [
       ...chats,
       {
         id: uuid(),
-        name: "placeholder name",
-        systemPrompt: "You are a helpful assistant.",
-        messages: [{ user: "Assistant", content: "How can I help you?" }],
+        name: "New Chat",
+        systemPrompt: inputSystemPrompt,
+        messages: [],
       },
     ];
     await tick();
@@ -141,15 +150,16 @@
         </button>
       </div>
       {#if isSidebarVisible}
+        <!-- New Chat Button -->
         <div class="new-chat">
           <button
             on:click={() => {
-              createNewChat();
+              createNewChat(defaultSystemPrompt);
               selectChat(chats[chats.length - 1]);
             }}
             on:keydown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
-                createNewChat();
+                createNewChat(defaultSystemPrompt);
                 selectChat(chats[chats.length - 1]);
               }
             }}
@@ -162,52 +172,51 @@
             />
           </button>
         </div>
+
+        <!-- Select Chats -->
+        {#each chats as chat (chat.id)}
+          <button
+            class="sidebar-item {selectedChat.id === chat.id ? 'active' : ''}"
+            on:click={() => selectChat(chat)}
+            on:keydown={(e) =>
+              (e.key === "Enter" || e.key === " ") && selectChat(chat)}
+            role="tab"
+            aria-selected={selectedChat.id === chat.id}
+          >
+            {chat.name}
+          </button>
+        {/each}
       {/if}
     </div>
 
-    {#if isSidebarVisible}
-      {#each chats as chat (chat.id)}
-        <button
-          class="sidebar-item {selectedChat.id === chat.id ? 'active' : ''}"
-          on:click={() => selectChat(chat)}
-          on:keydown={(e) =>
-            (e.key === "Enter" || e.key === " ") && selectChat(chat)}
-          role="tab"
-          aria-selected={selectedChat.id === chat.id}
-        >
-          {chat.name}
-        </button>
-      {/each}
-    {/if}
-  </div>
-
-  <!-- Chat Interface -->
-  <div class="chat">
-    <div class="messages">
-      {#if selectedChat.messages.length === 0}
-        <p>No messages yet.</p>
-      {/if}
-      {#each selectedChat.messages as message}
-        <div class="message {message.user.toLowerCase()}">
-          {#if message.user === "Assistant"}
-            <Markdown
-              options={markdownOptions}
-              source={String(message.content)}
-            />
-          {:else}
-            <span>{message.content}</span>
-          {/if}
-        </div>
-      {/each}
-    </div>
-    <div class="input-container">
-      <input
-        type="text"
-        bind:value={newMessage}
-        placeholder="Type a message..."
-        on:keydown={(e) => e.key === "Enter" && sendMessage()}
-      />
-      <button on:click={sendMessage}>Send</button>
+    <!-- Chat Interface -->
+    <div class="chat">
+      <div class="messages">
+        {#if selectedChat.messages.length === 0}
+          <p>No messages yet.</p>
+        {/if}
+        {#each selectedChat.messages as message}
+          <div class="message {message.user.toLowerCase()}">
+            {#if message.user === "Assistant"}
+              <Markdown
+                options={markdownOptions}
+                source={String(message.content)}
+              />
+            {:else}
+              <span>{message.content}</span>
+            {/if}
+          </div>
+        {/each}
+      </div>
+      <div class="input-container">
+        <input
+          type="text"
+          bind:value={newMessage}
+          placeholder="Type a message..."
+          on:keydown={(e) => e.key === "Enter" && sendMessage()}
+        />
+        <button on:click={sendMessage}>Send</button>
+      </div>
     </div>
   </div>
 </div>
