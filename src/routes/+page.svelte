@@ -1,31 +1,32 @@
 <script lang="ts">
-  import { stringify, v4 as uuid } from "uuid";
+  import { v4 as uuid } from "uuid";
   import { tick } from "svelte";
   import { base } from "$app/paths";
   import Markdown from "svelte-markdown";
   import remarkGfm from "remark-gfm";
   import rehypeSanitize from "rehype-sanitize";
-  // import type { UUIDTypes } from "uuid";
 
-  // type Message = {
-  //   user: "Assistant" | "User" | "System";
-  //   content: string;
-  // };
+  type Message = {
+    user: "Assistant" | "User" | "System";
+    content: string;
+  };
 
-  // type Chat = {
-  //   id: UUIDTypes;
-  //   name: string;
-  //   systemPrompt: string;
-  //   messages: Message[];
-  // };
+  type Chat = {
+    id: string;
+    name: string;
+    systemPrompt: string;
+    messages: Message[];
+  };
 
-  let chats = [
-    {
-      id: uuid(),
-      name: "New Chat",
-      systemPrompt: "You are a helpful assistant.",
-      messages: [{ user: "Assistant", content: "How can I help you?" }],
-    },
+  const newChat: Chat = {
+    id: "",
+    name: "New Chat",
+    systemPrompt: "You are a helpful assistant.",
+    messages: [{ user: "Assistant", content: "How can I help you?" }],
+  };
+
+  let chats: Chat[] = [
+    newChat, // TODO: fix asap
   ];
 
   let selectedChat = chats[0];
@@ -57,10 +58,7 @@
     ],
   };
 
-  /**
-   * @param {{ id: string, name: string, systemPrompt: string, messages: { user: string, content: string }[] }} chat
-   */
-  async function selectChat(chat) {
+  async function selectChat(chat: Chat) {
     selectedChat = chat;
     await tick();
     scrollToBottom();
@@ -103,7 +101,7 @@
     }
   }
 
-  async function newChat() {
+  async function createNewChat() {
     chats = [
       ...chats,
       {
@@ -146,12 +144,12 @@
         <div class="new-chat">
           <button
             on:click={() => {
-              newChat();
+              createNewChat();
               selectChat(chats[chats.length - 1]);
             }}
             on:keydown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
-                newChat();
+                createNewChat();
                 selectChat(chats[chats.length - 1]);
               }
             }}
