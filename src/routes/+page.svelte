@@ -6,36 +6,6 @@
   import remarkGfm from "remark-gfm";
   import rehypeSanitize from "rehype-sanitize";
 
-  type User = "Assistant" | "User" | "System";
-
-  type Message = {
-    user: User;
-    content: string;
-  };
-
-  type Chat = {
-    id: string;
-    name: string;
-    systemPrompt: string;
-    messages: Message[];
-  };
-
-  const defaultStartingMessage: Message = {
-    user: "Assistant",
-    content: "How can I help you?",
-  };
-
-  const defaultSystemPrompt = "You are a helpful assistant.";
-
-  let chats: Chat[] = [];
-  let selectedChat: Chat;
-  let newMessage = "";
-  let isSidebarVisible = true;
-
-  createNewChat(defaultSystemPrompt);
-  addMessage(chats[0], defaultStartingMessage);
-  selectedChat = chats[0];
-
   const markdownOptions = {
     remarkPlugins: [remarkGfm],
     rehypePlugins: [
@@ -57,65 +27,176 @@
           ],
           attributes: {
             "*": ["class", "id", "style"],
-          }, // Allow styles for better display
+          },
         },
       ],
     ],
   };
 
+  type User = "Assistant" | "User" | "System";
+
+  type Message = {
+    user: User;
+    content: string;
+  };
+
+  type Chat = {
+    id: string;
+    name: string;
+    systemPrompt: string;
+    messages: Message[];
+  };
+
+  const defaultStartingMessage: Message = {
+    user: "Assistant",
+    content: "How can I help you?",
+  };
+
+  const defaultSystemPrompt = "You are a helpful assistant.";
+  
+  const apiURL = "http://192.168.0.1:8080/api/v1/"
+
+  let chats: Chat[] = [];
+  let selectedChat: Chat;
+  let newMessage = "";
+  let isSidebarVisible = true;
+  let currentAbortController: AbortController | null = null;
+
+  createNewChat(defaultSystemPrompt);
+  addMessage(chats[0].id, defaultStartingMessage);
+  selectedChat = chats[0];
+
   async function selectChat(chat: Chat) {
-    // Set selectedChat from the chats array to ensure proper reference
+    if (currentAbortController) {
+      // Cancels the current streaming if a new chat is selected
+      currentAbortController.abort();
+      currentAbortController = null;
+    }
+
     const foundChat = chats.find((c) => c.id === chat.id);
     if (foundChat) {
       selectedChat = foundChat;
     } else {
       console.error("Chat not found");
     }
+
     await tick();
     scrollToBottom();
   }
 
-  async function addMessage(chat: Chat, message: Message) {
-    const chatIndex = chats.findIndex((c) => c.id === chat.id);
+  async function addMessage(chatId: string, message: Message) {
+    const chatIndex = findChatIndexFromId(chatId);
 
-    chats[chatIndex] = {
-      ...chat,
-      messages: [...chat.messages, message],
-    };
+    if (chatIndex !== -1) {
+      chats[chatIndex] = {
+        ...chats[chatIndex],
+        messages: [...chats[chatIndex].messages, message],
+      };
 
-    selectedChat = chats[chatIndex];
+      selectedChat = chats[chatIndex];
 
-    // Trigger Svelte reactivity
-    chats = [...chats];
-  }
-  async function sendMessage() {
-    if (newMessage.trim()) {
-      addMessage(selectedChat, {
-        user: "User",
-        content: newMessage,
-      });
-      newMessage = "";
-      await tick();
-      scrollToBottom();
-      runAssistantResponse();
+      chats = [...chats];
     }
   }
 
-  async function runAssistantResponse() {
-    // const response = `You said: \"${selectedChat.messages[selectedChat.messages.length - 1].content}\"`; // Example response
-    const response = `
-# Heading Example
-- List Item 1
-- List Item 2
+  async function sendMessage() {
+    if (newMessage.trim()) {
+      addMessage(selectedChat.id, {
+        user: "User",
+        content: newMessage,
+      });
+      const currentMessage = newMessage;
+      newMessage = "";
+      await tick();
+      scrollToBottom();
+      await runAssistantResponse(currentMessage);
+    }
+  }
 
-> This is a quote
-`; // debug
-    addMessage(selectedChat, {
-      user: "Assistant",
-      content: response,
-    });
-    await tick();
-    scrollToBottom();
+  async function appendMessage(
+    chatId: string,
+    messageIndex: number,
+    appendedChunk: string,
+  ) {
+    const chatIndex = findChatIndexFromId(chatId);
+
+    if (chatIndex !== -1) {
+      // Kind of confusing but it works so I'm not changing it.
+      chats[chatIndex] = {
+        ...chats[chatIndex],
+        messages: chats[chatIndex].messages.map((message, index) =>
+          index === messageIndex
+            ? {
+                ...message,
+                content: message.content + appendedChunk,
+              }
+            : message,
+        ),
+      };
+
+      selectedChat = chats[chatIndex];
+
+      chats = [...chats];
+    }
+  }
+
+  function findChatIndexFromId(id: string) {
+    return chats.findIndex((c) => c.id === id);
+  }
+
+  async function runAssistantResponse(userInput: string) {
+    const url = `${apiURL}complete?type=conversation`;
+
+    currentAbortController = new AbortController();
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(selectedChat),
+        signal: currentAbortController.signal,
+      });
+
+      if (!response.body) {
+        console.error("No response body received.");
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+
+      addMessage(selectedChat.id, {
+        user: "Assistant",
+        content: ""
+      });
+
+      const activeMessageIndex: number = selectedChat.messages.length - 1;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+
+        appendMessage(selectedChat.id, activeMessageIndex, chunk)
+        await tick();
+        scrollToBottom();
+      }
+    } catch (error) {
+      if ((error as Error).name === "AbortError") {
+        console.log("Streaming aborted due to chat switch.");
+      } else {
+        console.error("Error fetching data from API:", error);
+        addMessage(selectedChat.id, {
+          user: "Assistant",
+          content: "An error occurred while processing your request.",
+        });
+      }
+    } finally {
+      currentAbortController = null; // Reset the abort controller
+    }
   }
 
   function scrollToBottom() {
@@ -147,7 +228,7 @@
   function newChatButtonPressed() {
     createNewChat(defaultSystemPrompt);
     const newChat: Chat = chats[chats.length - 1];
-    addMessage(newChat, defaultStartingMessage);
+    addMessage(newChat.id, defaultStartingMessage);
     selectChat(newChat);
   }
 </script>
