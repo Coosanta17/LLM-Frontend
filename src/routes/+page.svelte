@@ -33,10 +33,10 @@
     ],
   };
 
-  type User = "Assistant" | "User" | "System";
+  type Role = "Assistant" | "User" | "System";
 
   type Message = {
-    user: User;
+    role: Role;
     content: string;
   };
 
@@ -48,7 +48,7 @@
   };
 
   const defaultStartingMessage: Message = {
-    user: "Assistant",
+    role: "Assistant",
     content: "How can I help you?",
   };
 
@@ -102,7 +102,7 @@
   async function sendMessage() {
     if (newMessage.trim()) {
       addMessage(selectedChat.id, {
-        user: "User",
+        role: "User",
         content: newMessage,
       });
       const currentMessage = newMessage;
@@ -168,7 +168,7 @@
       const decoder = new TextDecoder("utf-8");
 
       addMessage(selectedChat.id, {
-        user: "Assistant",
+        role: "Assistant",
         content: ""
       });
 
@@ -190,7 +190,7 @@
       } else {
         console.error("Error fetching data from API:", error);
         addMessage(selectedChat.id, {
-          user: "Assistant",
+          role: "Assistant",
           content: "An error occurred while processing your request.",
         });
       }
@@ -299,8 +299,8 @@
         <p>No messages yet.</p>
       {/if}
       {#each selectedChat.messages as message}
-        <div class="message {message.user.toLowerCase()}">
-          {#if message.user === "Assistant"}
+        <div class="message {message.role.toLowerCase()}">
+          {#if message.role === "Assistant"}
             <Markdown
               options={markdownOptions}
               source={String(message.content)}
