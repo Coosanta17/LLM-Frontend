@@ -54,7 +54,7 @@
 
   const defaultSystemPrompt = "You are a helpful assistant.";
   
-  const apiURL = "http://192.168.0.1:8080/api/v1/"
+  const apiURL = "https://api.coosanta.net/llm/v1/"
 
   let chats: Chat[] = [];
   let selectedChat: Chat;
