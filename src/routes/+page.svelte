@@ -105,11 +105,9 @@
         role: "User",
         content: newMessage,
       });
-      const currentMessage = newMessage;
-      newMessage = "";
       await tick();
       scrollToBottom();
-      await runAssistantResponse(currentMessage);
+      await runAssistantResponse();
     }
   }
 
@@ -144,60 +142,71 @@
     return chats.findIndex((c) => c.id === id);
   }
 
-  async function runAssistantResponse(userInput: string) {
-    const url = `${apiURL}complete?type=conversation`;
+  async function runAssistantResponse() {
+  const url = `${apiURL}complete?type=conversation`;
 
-    currentAbortController = new AbortController();
+  currentAbortController = new AbortController();
 
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(selectedChat),
-        signal: currentAbortController.signal,
-      });
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(selectedChat),
+      signal: currentAbortController.signal,
+    });
 
-      if (!response.body) {
-        console.error("No response body received.");
-        return;
+    if (!response.body) {
+      console.error("No response body received.");
+      return;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+
+    addMessage(selectedChat.id, {
+      role: "Assistant",
+      content: "",
+    });
+
+    const activeMessageIndex = selectedChat.messages.length - 1;
+
+    let buffer = ""; // Store chunks until a full message is received
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      // Process SSE events
+      const lines = buffer.split("\n");
+      for (let i = 0; i < lines.length - 1; i++) {
+        const line = lines[i].trim();
+        if (line.startsWith("data:")) {
+          const chunk = line.slice(5).trim(); // Remove `data:`
+          appendMessage(selectedChat.id, activeMessageIndex, chunk);
+        }
       }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-
+      buffer = lines[lines.length - 1]; // Keep the last line (incomplete)
+      await tick();
+      scrollToBottom();
+    }
+  } catch (error) {
+    if ((error as any).name === "AbortError") {
+      console.log("Streaming aborted due to chat switch.");
+    } else {
+      console.error("Error fetching data from API:", error);
       addMessage(selectedChat.id, {
         role: "Assistant",
-        content: ""
+        content: "An error occurred while processing your request.",
       });
-
-      const activeMessageIndex: number = selectedChat.messages.length - 1;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-
-        appendMessage(selectedChat.id, activeMessageIndex, chunk)
-        await tick();
-        scrollToBottom();
-      }
-    } catch (error) {
-      if ((error as Error).name === "AbortError") {
-        console.log("Streaming aborted due to chat switch.");
-      } else {
-        console.error("Error fetching data from API:", error);
-        addMessage(selectedChat.id, {
-          role: "Assistant",
-          content: "An error occurred while processing your request.",
-        });
-      }
-    } finally {
-      currentAbortController = null; // Reset the abort controller
     }
+  } finally {
+    currentAbortController = null;
   }
+}
 
   function scrollToBottom() {
     const messagesContainer = document.querySelector(".messages");
