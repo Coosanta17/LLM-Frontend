@@ -53,8 +53,8 @@
   };
 
   const defaultSystemPrompt = "You are a helpful assistant.";
-  
-  const apiURL = "https://api.coosanta.net/llm/v1/"
+
+  const apiURL = "https://api.coosanta.net/llm/v1/";
 
   let chats: Chat[] = [];
   let selectedChat: Chat;
@@ -144,83 +144,91 @@
   }
 
   async function runAssistantResponse() {
-  const url = `${apiURL}complete?type=conversation`;
+    const url = `${apiURL}complete?type=conversation`;
 
-  currentAbortController = new AbortController();
+    currentAbortController = new AbortController();
 
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(selectedChat),
-      signal: currentAbortController.signal,
-    });
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(selectedChat),
+        signal: currentAbortController.signal,
+      });
 
-    if (!response.body) {
-      console.error("No response body received.");
-      return;
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder("utf-8");
-
-    addMessage(selectedChat.id, {
-      role: "Assistant",
-      content: "",
-    });
-
-    const activeMessageIndex = selectedChat.messages.length - 1;
-
-    let buffer = ""; // Buffer for accumulating data between chunks
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-
-      // Process SSE lines
-      const lines = buffer.split("\n");
-      for (let i = 0; i < lines.length - 1; i++) {
-        const line = lines[i];
-
-        // Only handle lines that start with "data:"
-        if (line.startsWith("data:")) {
-          // Preserve leading/trailing spaces
-          const chunk = line.slice(5); // Remove the `data:` prefix, but keep spaces
-          appendMessage(selectedChat.id, activeMessageIndex, chunk);
-        }
+      if (!response.body) {
+        console.error("No response body received.");
+        return;
       }
 
-      // Keep the last line (it might be incomplete)
-      buffer = lines[lines.length - 1];
-      await tick();
-      scrollToBottom();
-    }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
 
-    // If there's any remaining data in the buffer, process it
-    if (buffer.startsWith("data:")) {
-      const chunk = buffer.slice(5);
-      appendMessage(selectedChat.id, activeMessageIndex, chunk);
-      scrollToBottom();
-    }
-  } catch (error) {
-    if ((error as any).name === "AbortError") {
-      console.log("Streaming aborted due to chat switch.");
-    } else {
-      console.error("Error fetching data from API:", error);
       addMessage(selectedChat.id, {
         role: "Assistant",
-        content: "An error occurred while processing your request.",
+        content: "",
       });
-    }
-  } finally {
-    currentAbortController = null;
-  }
-}
 
+      const activeMessageIndex = selectedChat.messages.length - 1;
+
+      let buffer = ""; // Buffer for accumulating data between chunks
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process SSE lines
+        const lines = buffer.split("\n");
+        for (let i = 0; i < lines.length - 1; i++) {
+          const line = lines[i];
+
+          if (line.startsWith("data:")) {
+            const chunk = line.slice(5); // Remove "data:" but preserve leading/trailing spaces
+
+            if (chunk === "") {
+              // If the chunk is blank (e.g., `data:` followed by no content), treat it as a newline
+              appendMessage(selectedChat.id, activeMessageIndex, "\n");
+            } else {
+              // Otherwise, append the content as-is
+              appendMessage(selectedChat.id, activeMessageIndex, chunk);
+            }
+          }
+        }
+
+        // Keep the last line (it might be incomplete)
+        buffer = lines[lines.length - 1];
+        await tick();
+        scrollToBottom();
+      }
+
+      // If there's any remaining data in the buffer, process it
+      if (buffer.startsWith("data:")) {
+        const chunk = buffer.slice(5);
+        if (chunk === "") {
+          appendMessage(selectedChat.id, activeMessageIndex, "\n");
+        } else {
+          appendMessage(selectedChat.id, activeMessageIndex, chunk);
+        }
+        scrollToBottom();
+      }
+    } catch (error) {
+      if ((error as any).name === "AbortError") {
+        console.log("Streaming aborted due to chat switch.");
+      } else {
+        console.error("Error fetching data from API:", error);
+        addMessage(selectedChat.id, {
+          role: "Assistant",
+          content: "An error occurred while processing your request.",
+        });
+      }
+    } finally {
+      currentAbortController = null;
+    }
+  }
 
   function scrollToBottom() {
     const messagesContainer = document.querySelector(".messages");
