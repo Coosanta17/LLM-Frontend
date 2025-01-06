@@ -105,6 +105,7 @@
         role: "User",
         content: newMessage,
       });
+      newMessage = "";
       await tick();
       scrollToBottom();
       await runAssistantResponse();
@@ -172,7 +173,7 @@
 
     const activeMessageIndex = selectedChat.messages.length - 1;
 
-    let buffer = ""; // Store chunks until a full message is received
+    let buffer = ""; // Buffer for accumulating data between chunks
 
     while (true) {
       const { done, value } = await reader.read();
@@ -180,17 +181,29 @@
 
       buffer += decoder.decode(value, { stream: true });
 
-      // Process SSE events
+      // Process SSE lines
       const lines = buffer.split("\n");
       for (let i = 0; i < lines.length - 1; i++) {
-        const line = lines[i].trim();
+        const line = lines[i];
+
+        // Only handle lines that start with "data:"
         if (line.startsWith("data:")) {
-          const chunk = line.slice(5).trim(); // Remove `data:`
+          // Preserve leading/trailing spaces
+          const chunk = line.slice(5); // Remove the `data:` prefix, but keep spaces
           appendMessage(selectedChat.id, activeMessageIndex, chunk);
         }
       }
-      buffer = lines[lines.length - 1]; // Keep the last line (incomplete)
+
+      // Keep the last line (it might be incomplete)
+      buffer = lines[lines.length - 1];
       await tick();
+      scrollToBottom();
+    }
+
+    // If there's any remaining data in the buffer, process it
+    if (buffer.startsWith("data:")) {
+      const chunk = buffer.slice(5);
+      appendMessage(selectedChat.id, activeMessageIndex, chunk);
       scrollToBottom();
     }
   } catch (error) {
@@ -207,6 +220,7 @@
     currentAbortController = null;
   }
 }
+
 
   function scrollToBottom() {
     const messagesContainer = document.querySelector(".messages");
