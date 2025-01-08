@@ -61,6 +61,8 @@
   let newMessage = "";
   let isSidebarVisible = true;
   let currentAbortController: AbortController | null = null;
+  let isGenerating = false;
+  let isLoading = false;
 
   createNewChat(defaultSystemPrompt);
   addMessage(chats[0].id, defaultStartingMessage);
@@ -187,25 +189,41 @@
           const line = lines[i];
 
           if (line.startsWith("data:")) {
-            const chunk = line.slice(5); // Remove "data:" but preserve leading/trailing spaces
+            const chunk = line.slice(5);
+
+            if (isGenerating) {
+              selectedChat.messages.pop();
+              isGenerating = false;
+            }
 
             if (chunk === "") {
               // If the chunk is blank (e.g., `data:` followed by no content), treat it as a newline
               appendMessage(selectedChat.id, activeMessageIndex, "\n");
             } else {
-              // Otherwise, append the content as-is
               appendMessage(selectedChat.id, activeMessageIndex, chunk);
+            }
+          }
+
+          if (line.startsWith("event:")) {
+            const eventChunk = line.slice(6);
+
+            if (eventChunk === "generating") {
+              addMessage(selectedChat.id, {
+                role: "System",
+                content: "Generating response...",
+              });
+              isGenerating = true;
+              isLoading = true;
             }
           }
         }
 
-        // Keep the last line (it might be incomplete)
+        // Save the last line in the buffer for the next iteration
         buffer = lines[lines.length - 1];
         await tick();
         scrollToBottom();
       }
 
-      // If there's any remaining data in the buffer, process it
       if (buffer.startsWith("data:")) {
         const chunk = buffer.slice(5);
         if (chunk === "") {
@@ -215,6 +233,8 @@
         }
         scrollToBottom();
       }
+
+      isLoading = false;
     } catch (error) {
       if ((error as any).name === "AbortError") {
         console.log("Streaming aborted due to chat switch.");
