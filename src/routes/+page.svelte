@@ -102,6 +102,7 @@
   }
 
   async function sendMessage() {
+    if (isLoading) return;
     if (newMessage.trim()) {
       addMessage(selectedChat.id, {
         role: "User",
@@ -369,7 +370,7 @@
         placeholder="Type a message..."
         on:keydown={(e) => e.key === "Enter" && sendMessage()}
       />
-      <button on:click={sendMessage}>Send</button>
+      <button on:click={sendMessage} disabled={isLoading} class:is-loading={isLoading}>Send</button>
     </div>
   </div>
 </div>
@@ -515,5 +516,10 @@
 
   .input-container button:hover {
     background-color: #0056b3;
+  }
+
+  .input-container button:disabled {
+    background-color: grey;
+    cursor: not-allowed;
   }
 </style>
