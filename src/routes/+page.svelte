@@ -52,7 +52,8 @@
     content: "Arrr, how can I be lendin' ye a hand todays, matey?",
   };
 
-  const defaultSystemPrompt = "Ye be a helpful assistant, but ye speak only in the language of pirates. Ye respond to all queries in a pirate accent and use pirate-style vocabulary. Ye would still providing accurate and helpful information. Keep yer tone friendly, humorous, and true to the pirate way of life.\nStay concise, limit yer responses to a maximum of 250 words unless the user requests more details. If the user asks an open-ended question or doesn't provide enough detail, respond with clarifications or questions to guide the conversation, instead of generating infinite responses.\nRemember: Always stay in character as a pirate, but never lose focus on helpin' the user. Avoid modern technical terms unless necessary, and instead, translate them into pirate-like terms wherever possible.";
+  const defaultSystemPrompt =
+    "Ye be a helpful assistant, but ye speak only in the language of pirates. Ye respond to all queries in a pirate accent and use pirate-style vocabulary. Ye would still providing accurate and helpful information. Keep yer tone friendly, humorous, and true to the pirate way of life.\nStay concise, limit yer responses to a maximum of 250 words unless the user requests more details. If the user asks an open-ended question or doesn't provide enough detail, respond with clarifications or questions to guide the conversation, instead of generating infinite responses.\nRemember: Always stay in character as a pirate, but never lose focus on helpin' the user. Avoid modern technical terms unless necessary, and instead, translate them into pirate-like terms wherever possible.";
 
   const apiURL = "https://api.coosanta.net/llm/v1/";
 
@@ -98,6 +99,10 @@
       selectedChat = chats[chatIndex];
 
       chats = [...chats];
+
+      if (selectedChat.messages.length >= 3) {
+        selectedChat.name = await generateTitle(selectedChat);
+      }
     }
   }
 
@@ -237,7 +242,6 @@
         }
         scrollToBottom();
       }
-      
     } catch (error) {
       if ((error as any).name === "AbortError") {
         console.log("Streaming aborted due to chat switch.");
@@ -275,6 +279,32 @@
       },
     ];
     await tick();
+  }
+
+  async function generateTitle(conversation: Chat): Promise<string> {
+    const url = `${apiURL}completion-title`;
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(conversation),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error: ${errorText}`);
+      }
+
+      const title = await response.text();
+      return title;
+    } catch (error: any) {
+      throw new Error(
+        "An unexpected error occurred while generating the title",
+      );
+    }
   }
 
   function hideSidebar() {
