@@ -151,6 +151,8 @@
 
     currentAbortController = new AbortController();
 
+    isLoading = true;
+
     try {
       const response = await fetch(url, {
         method: "POST",
@@ -214,7 +216,8 @@
                 content: "Generating response...",
               });
               isGenerating = true;
-              isLoading = true;
+            } else if (eventChunk === "ping") {
+              console.debug("Received ping from server.");
             }
           }
         }
@@ -234,20 +237,21 @@
         }
         scrollToBottom();
       }
-
-      isLoading = false;
+      
     } catch (error) {
       if ((error as any).name === "AbortError") {
         console.log("Streaming aborted due to chat switch.");
       } else {
         console.error("Error fetching data from API:", error);
         addMessage(selectedChat.id, {
-          role: "Assistant",
+          role: "System",
           content: "An error occurred while processing your request.",
         });
       }
     } finally {
       currentAbortController = null;
+      isGenerating = false;
+      isLoading = false;
     }
   }
 
@@ -370,7 +374,11 @@
         placeholder="Type a message..."
         on:keydown={(e) => e.key === "Enter" && sendMessage()}
       />
-      <button on:click={sendMessage} disabled={isLoading} class:is-loading={isLoading}>Send</button>
+      <button
+        on:click={sendMessage}
+        disabled={isLoading}
+        class:is-loading={isLoading}>Send</button
+      >
     </div>
   </div>
 </div>
