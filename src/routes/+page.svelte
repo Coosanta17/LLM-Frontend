@@ -99,10 +99,6 @@
       selectedChat = chats[chatIndex];
 
       chats = [...chats];
-
-      if (selectedChat.messages.length >= 3) {
-        selectedChat.name = await generateTitle(selectedChat);
-      }
     }
   }
 
@@ -117,6 +113,13 @@
       await tick();
       scrollToBottom();
       await runAssistantResponse();
+      
+      if (
+        selectedChat.messages.length >= 3 &&
+        ["New Chat", "New Conversation", ""].includes(selectedChat.name)
+      ) {
+        selectedChat.name = await generateTitle(selectedChat);
+      }
     }
   }
 
@@ -259,13 +262,40 @@
     }
   }
 
-  function scrollToBottom() {
-    const messagesContainer = document.querySelector(".messages");
-    if (messagesContainer) {
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    } else {
-      console.warn("Messages container not found");
+  async function processStream(reader: ReadableStreamDefaultReader<Uint8Array>, decoder: TextDecoder, resolve: (value: string | PromiseLike<string>) => void, reject: (reason?: any) => void) {
+    let buffer = "";
+  
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+  
+      buffer += decoder.decode(value, { stream: true });
+  
+      const lines = buffer.split("\n");
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+  
+        if (line.startsWith("event:")) {
+          const event = line.slice(6).trim(); // Extract the event name
+          if (event === "ping") {
+            console.debug("Received ping from server when generating title.");
+          } else if (event === "generating") {
+            console.debug("Server is generating title...");
+          } else if (event === "title") {
+            const dataLine = lines[i + 1]?.trim();
+            if (dataLine?.startsWith("data:")) {
+              const data = dataLine.slice(5).trim();
+              resolve(data);
+              return;
+            }
+          }
+        }
+      }
+  
+      buffer = lines[lines.length - 1];
     }
+  
+    reject(new Error("No title received."));
   }
 
   async function createNewChat(inputSystemPrompt: string) {
@@ -284,26 +314,32 @@
   async function generateTitle(conversation: Chat): Promise<string> {
     const url = `${apiURL}completion-title`;
 
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(conversation),
-      });
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(conversation),
+    });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Error: ${errorText}`);
-      }
+    if (!response.body) {
+      throw new Error("No response body received.");
+    }
 
-      const title = await response.text();
-      return title;
-    } catch (error: any) {
-      throw new Error(
-        "An unexpected error occurred while generating the title",
-      );
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+
+    return new Promise<string>((resolve, reject) => {
+      processStream(reader, decoder, resolve, reject).catch(reject);
+    });
+  }
+
+  function scrollToBottom() {
+    const messagesContainer = document.querySelector(".messages");
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    } else {
+      console.warn("Messages container not found");
     }
   }
 
