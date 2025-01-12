@@ -38,10 +38,11 @@
   type Message = {
     role: Role;
     content: string;
+    ignored?: boolean;
   };
 
   type Chat = {
-    id: string;
+    uuid: string;
     name: string;
     systemPrompt: string;
     messages: Message[];
@@ -73,7 +74,7 @@
   let isLoading = false;
 
   createNewChat(defaultSystemPrompt);
-  addMessage(chats[0].id, defaultStartingMessage);
+  addMessage(chats[0].uuid, defaultStartingMessage);
   selectedChat = chats[0];
 
   async function selectChat(chat: Chat) {
@@ -83,7 +84,7 @@
       currentAbortController = null;
     }
 
-    const foundChat = chats.find((c) => c.id === chat.id);
+    const foundChat = chats.find((c) => c.uuid === chat.uuid);
     if (foundChat) {
       selectedChat = foundChat;
     } else {
@@ -112,7 +113,7 @@
   async function sendMessage() {
     if (isLoading) return;
     if (newMessage.trim()) {
-      addMessage(selectedChat.id, {
+      addMessage(selectedChat.uuid, {
         role: "User",
         content: newMessage,
       });
@@ -120,11 +121,12 @@
       await tick();
       scrollToBottom();
       await runAssistantResponse();
-      
+
       if (
         selectedChat.messages.length >= 3 &&
         ["New Chat", "New Conversation", ""].includes(selectedChat.name)
       ) {
+        selectedChat.name = "Generating title..."
         selectedChat.name = await generateTitle(selectedChat);
       }
     }
@@ -158,7 +160,7 @@
   }
 
   function findChatIndexFromId(id: string) {
-    return chats.findIndex((c) => c.id === id);
+    return chats.findIndex((c) => c.uuid === id);
   }
 
   async function runAssistantResponse() {
@@ -186,7 +188,7 @@
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
 
-      addMessage(selectedChat.id, {
+      addMessage(selectedChat.uuid, {
         role: "Assistant",
         content: "",
       });
@@ -216,9 +218,9 @@
 
             if (chunk === "") {
               // If the chunk is blank (e.g., `data:` followed by no content), treat it as a newline
-              appendMessage(selectedChat.id, activeMessageIndex, "\n");
+              appendMessage(selectedChat.uuid, activeMessageIndex, "\n");
             } else {
-              appendMessage(selectedChat.id, activeMessageIndex, chunk);
+              appendMessage(selectedChat.uuid, activeMessageIndex, chunk);
             }
           }
 
@@ -226,7 +228,7 @@
             const eventChunk = line.slice(6);
 
             if (eventChunk === "generating") {
-              addMessage(selectedChat.id, {
+              addMessage(selectedChat.uuid, {
                 role: "System",
                 content: "Generating response...",
               });
@@ -248,9 +250,9 @@
       if (buffer.startsWith("data:")) {
         const chunk = buffer.slice(5);
         if (chunk === "") {
-          appendMessage(selectedChat.id, activeMessageIndex, "\n");
+          appendMessage(selectedChat.uuid, activeMessageIndex, "\n");
         } else {
-          appendMessage(selectedChat.id, activeMessageIndex, chunk);
+          appendMessage(selectedChat.uuid, activeMessageIndex, chunk);
         }
         scrollToBottom();
       }
@@ -259,7 +261,7 @@
         console.log("Streaming aborted due to chat switch.");
       } else {
         console.error("Error fetching data from API:", error);
-        addMessage(selectedChat.id, {
+        addMessage(selectedChat.uuid, {
           role: "System",
           content: "An error occurred while processing your request.",
         });
@@ -316,7 +318,7 @@
     chats = [
       ...chats,
       {
-        id: uuid(),
+        uuid: uuid(),
         name: "New Chat",
         systemPrompt: inputSystemPrompt,
         messages: [],
@@ -364,7 +366,7 @@
   function newChatButtonPressed() {
     createNewChat(defaultSystemPrompt);
     const newChat: Chat = chats[chats.length - 1];
-    addMessage(newChat.id, defaultStartingMessage);
+    addMessage(newChat.uuid, defaultStartingMessage);
     selectChat(newChat);
   }
 </script>
@@ -413,14 +415,14 @@
 
     {#if isSidebarVisible}
       <!-- Select Chats -->
-      {#each chats as chat (chat.id)}
+      {#each chats as chat (chat.uuid)}
         <button
-          class="sidebar-item {selectedChat.id === chat.id ? 'active' : ''}"
+          class="sidebar-item {selectedChat.uuid === chat.uuid ? 'active' : ''}"
           on:click={() => selectChat(chat)}
           on:keydown={(e) =>
             (e.key === "Enter" || e.key === " ") && selectChat(chat)}
           role="tab"
-          aria-selected={selectedChat.id === chat.id}
+          aria-selected={selectedChat.uuid === chat.uuid}
         >
           {chat.name}
         </button>
