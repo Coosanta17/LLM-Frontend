@@ -124,7 +124,7 @@
 
       if (
         selectedChat.messages.length >= 3 &&
-        ["New Chat", "New Conversation", ""].includes(selectedChat.name)
+        ["New Chat", "New Conversation", "", "Generating title..."].includes(selectedChat.name)
       ) {
         selectedChat.name = "Generating title..."
         selectedChat.name = await generateTitle(selectedChat);
