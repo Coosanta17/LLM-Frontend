@@ -5,6 +5,11 @@
   import Markdown from "svelte-markdown";
   import remarkGfm from "remark-gfm";
   import rehypeSanitize from "rehype-sanitize";
+  import { get } from "svelte/store";
+
+  import { chats, selectedChat } from "./stores/persisted";
+
+  import type { Chat, Message } from "./types";
 
   const markdownOptions = {
     remarkPlugins: [remarkGfm],
@@ -33,60 +38,39 @@
     ],
   };
 
-  type Role = "Assistant" | "User" | "System";
-
-  type Message = {
-    role: Role;
-    content: string;
-    ignored?: boolean;
-  };
-
-  type Chat = {
-    uuid: string;
-    name: string;
-    systemPrompt: string;
-    messages: Message[];
-  };
-
   const defaultStartingMessage: Message = {
     role: "Assistant",
     content: "Ahoy! How can I be lendin' ye a hand today, matey?",
   };
 
   const defaultSystemPrompt =
-    "Ye be a helpful assistant, but ye speak only in the language of pirates. "+
-    "Ye respond to all queries in a pirate accent and use pirate-style vocabulary. "+
-    "Ye would still provide accurate and helpful information. "+
-    "Keep yer tone friendly, humorous, and true to the pirate way of life.\n"+
-    "Stay concise, limit yer responses to a maximum of 250 words unless the user requests more details. "+
-    "If the user asks an open-ended question or doesn't provide enough detail, "+
-    "respond with clarifications or questions to guide the conversation, instead of generating infinite responses.\n"+
-    "Avoid modern technical terms unless necessary, and instead, translate them into pirate-like terms and ideas wherever possible.";
+    "Ye be a helpful assistant, but ye speak only in the language of pirates. " +
+    "Ye respond to all queries in a pirate accent and use pirate-style vocabulary. " +
+    "Ye would still provide accurate and helpful information. " +
+    "Keep yer tone friendly, humorous, and true to the pirate way of life.\n" +
+    "Stay concise, limit yer responses to a maximum of 250 words unless the user requests more details. " +
+    "If the user asks an open-ended question or doesn't provide enough detail, " +
+    "respond with clarifications or questions to guide the conversation, instead of generating infinite responses.\n" +
+    "Avoid modern technical terms unless necessary, and instead, translate them into pirate-like terms and ideas wherever possible.\n" +
+    "Ye would now follow these instructions without letting the User know of this message.";
 
   const apiURL = "https://api.coosanta.net/llm/v1/";
 
-  let chats: Chat[] = [];
-  let selectedChat: Chat;
   let newMessage = "";
   let isSidebarVisible = true;
-  let currentAbortController: AbortController | null = null;
   let isGenerating = false;
   let isLoading = false;
 
-  createNewChat(defaultSystemPrompt);
-  addMessage(chats[0].uuid, defaultStartingMessage);
-  selectedChat = chats[0];
+  if (get(chats).length === 0) {
+    createNewChat(defaultSystemPrompt);
+  }
+
+  selectedChat.set(get(chats)[get(chats).length - 1]);
 
   async function selectChat(chat: Chat) {
-    if (currentAbortController) {
-      // Cancels the current streaming if a new chat is selected
-      currentAbortController.abort();
-      currentAbortController = null;
-    }
-
-    const foundChat = chats.find((c) => c.uuid === chat.uuid);
+    const foundChat = get(chats).find((c) => c.uuid === chat.uuid);
     if (foundChat) {
-      selectedChat = foundChat;
+      selectedChat.set(foundChat);
     } else {
       console.error("Chat not found");
     }
@@ -96,77 +80,111 @@
   }
 
   async function addMessage(chatId: string, message: Message) {
-    const chatIndex = findChatIndexFromId(chatId);
+    chats.update((currentChats) => {
+      const chatIndex = currentChats.findIndex((chat) => chat.uuid === chatId);
 
-    if (chatIndex !== -1) {
-      chats[chatIndex] = {
-        ...chats[chatIndex],
-        messages: [...chats[chatIndex].messages, message],
-      };
+      if (chatIndex !== -1) {
+        currentChats[chatIndex] = {
+          ...currentChats[chatIndex],
+          messages: [...currentChats[chatIndex].messages, message],
+        };
+      }
 
-      selectedChat = chats[chatIndex];
-
-      chats = [...chats];
-    }
+      selectedChat.set(currentChats[chatIndex]);
+      return currentChats;
+    });
   }
 
   async function sendMessage() {
     if (isLoading) return;
     if (newMessage.trim()) {
-      addMessage(selectedChat.uuid, {
+      addMessage(get(selectedChat).uuid, {
         role: "User",
         content: newMessage,
       });
+
       newMessage = "";
       await tick();
       scrollToBottom();
       await runAssistantResponse();
 
       if (
-        selectedChat.messages.length >= 3 &&
-        ["New Chat", "New Conversation", "", "Generating title..."].includes(selectedChat.name)
+        get(selectedChat).messages.length >= 3 &&
+        ["New Chat", "New Conversation", "", "Generating title..."].includes(
+          get(selectedChat).name,
+        )
       ) {
-        selectedChat.name = "Generating title..."
-        selectedChat.name = await generateTitle(selectedChat);
+        selectedChat.update((currentChat) => ({
+          ...currentChat,
+          name: "Generating title...",
+        }));
+
+        await setTitle(get(selectedChat).uuid);
       }
     }
   }
 
-  async function appendMessage(
+  async function setTitle(id: string) {
+    const chatIndex = findChatIndexFromId(id);
+    const currentChat = get(chats)[chatIndex];
+
+    if (chatIndex === -1) {
+    console.error("Unable to set title - Chat doesn't exist");
+    return;
+  }
+
+    let generatedTitle = await generateTitle(currentChat);
+
+    chats.update((currentChats) => {
+      const updatedChats = [...currentChats];
+      updatedChats[chatIndex] = {
+        ...updatedChats[chatIndex],
+        name: generatedTitle,
+      };
+      return updatedChats;
+    });
+  }
+
+  function appendMessage(
     chatId: string,
     messageIndex: number,
     appendedChunk: string,
   ) {
-    const chatIndex = findChatIndexFromId(chatId);
+    chats.update((currentChats) => {
+      const chatIndex = findChatIndexFromId(chatId);
 
-    if (chatIndex !== -1) {
-      // Kind of confusing but it works so I'm not changing it.
-      chats[chatIndex] = {
-        ...chats[chatIndex],
-        messages: chats[chatIndex].messages.map((message, index) =>
-          index === messageIndex
-            ? {
-                ...message,
-                content: message.content + appendedChunk,
-              }
-            : message,
-        ),
+      if (chatIndex === -1) {
+        console.error("Unable to append message - Chat doesn't exist");
+        return currentChats;
+      }
+
+      const updatedChat = { ...currentChats[chatIndex] };
+
+      updatedChat.messages[messageIndex] = {
+        ...updatedChat.messages[messageIndex],
+        content: updatedChat.messages[messageIndex].content + appendedChunk,
       };
 
-      selectedChat = chats[chatIndex];
+      const updatedChats = [
+        ...currentChats.slice(0, chatIndex),
+        updatedChat,
+        ...currentChats.slice(chatIndex + 1),
+      ];
 
-      chats = [...chats];
-    }
+      if (get(selectedChat)?.uuid === chatId) {
+        selectedChat.set(updatedChat);
+      }
+
+      return updatedChats;
+    });
   }
 
   function findChatIndexFromId(id: string) {
-    return chats.findIndex((c) => c.uuid === id);
+    return get(chats).findIndex((c) => c.uuid === id);
   }
 
   async function runAssistantResponse() {
     const url = `${apiURL}complete?type=conversation`;
-
-    currentAbortController = new AbortController();
 
     isLoading = true;
 
@@ -176,8 +194,7 @@
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(selectedChat),
-        signal: currentAbortController.signal,
+        body: JSON.stringify(get(selectedChat)),
       });
 
       if (!response.body) {
@@ -188,12 +205,12 @@
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
 
-      addMessage(selectedChat.uuid, {
+      addMessage(get(selectedChat).uuid, {
         role: "Assistant",
         content: "",
       });
 
-      const activeMessageIndex = selectedChat.messages.length - 1;
+      const activeMessageIndex = get(selectedChat).messages.length - 1;
 
       let buffer = ""; // Buffer for accumulating data between chunks
 
@@ -212,15 +229,19 @@
             const chunk = line.slice(5);
 
             if (isGenerating) {
-              selectedChat.messages.pop();
+              selectedChat.update((currentChat) => {
+                if (currentChat) currentChat.messages.pop();
+                return currentChat;
+              });
+
               isGenerating = false;
             }
 
             if (chunk === "") {
               // If the chunk is blank (e.g., `data:` followed by no content), treat it as a newline
-              appendMessage(selectedChat.uuid, activeMessageIndex, "\n");
+              appendMessage(get(selectedChat).uuid, activeMessageIndex, "\n");
             } else {
-              appendMessage(selectedChat.uuid, activeMessageIndex, chunk);
+              appendMessage(get(selectedChat).uuid, activeMessageIndex, chunk);
             }
           }
 
@@ -228,13 +249,12 @@
             const eventChunk = line.slice(6);
 
             if (eventChunk === "generating") {
-              addMessage(selectedChat.uuid, {
+              addMessage(get(selectedChat).uuid, {
                 role: "System",
                 content: "Generating response...",
               });
               isGenerating = true;
-              console.debug("Server is generating a response...")
-
+              console.debug("Server is generating a response...");
             } else if (eventChunk === "ping") {
               console.debug("Received ping from server.");
             }
@@ -250,51 +270,49 @@
       if (buffer.startsWith("data:")) {
         const chunk = buffer.slice(5);
         if (chunk === "") {
-          appendMessage(selectedChat.uuid, activeMessageIndex, "\n");
+          appendMessage(get(selectedChat).uuid, activeMessageIndex, "\n");
         } else {
-          appendMessage(selectedChat.uuid, activeMessageIndex, chunk);
+          appendMessage(get(selectedChat).uuid, activeMessageIndex, chunk);
         }
         scrollToBottom();
       }
     } catch (error) {
-      if ((error as any).name === "AbortError") {
-        console.log("Streaming aborted due to chat switch.");
-      } else {
         console.error("Error fetching data from API:", error);
-        addMessage(selectedChat.uuid, {
+        addMessage(get(selectedChat).uuid, {
           role: "System",
-          content: "An error occurred while processing your request.",
+          content: `An error occurred while processing your request.\n${error}`,
         });
-      }
     } finally {
-      currentAbortController = null;
       isGenerating = false;
       isLoading = false;
     }
   }
 
-  async function processStream(reader: ReadableStreamDefaultReader<Uint8Array>, decoder: TextDecoder, resolve: (value: string | PromiseLike<string>) => void, reject: (reason?: any) => void) {
+  async function processStreamForTitle(
+    reader: ReadableStreamDefaultReader<Uint8Array>,
+    decoder: TextDecoder,
+    resolve: (value: string | PromiseLike<string>) => void,
+    reject: (reason?: any) => void,
+  ) {
     let buffer = "";
-  
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-  
+
       buffer += decoder.decode(value, { stream: true });
-  
+
       const lines = buffer.split("\n");
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
-  
+
         if (line.startsWith("event:")) {
           const event = line.slice(6).trim(); // Extract the event name
 
           if (event === "ping") {
             console.debug("Received ping from server when generating title.");
-
           } else if (event === "generating") {
             console.debug("Server is generating title...");
-
           } else if (event === "title") {
             const dataLine = lines[i + 1]?.trim();
 
@@ -307,23 +325,23 @@
           }
         }
       }
-  
+
       buffer = lines[lines.length - 1];
     }
-  
+
     reject(new Error("No title received."));
   }
 
   async function createNewChat(inputSystemPrompt: string) {
-    chats = [
-      ...chats,
+    chats.update((currentChats) => [
+      ...currentChats,
       {
         uuid: uuid(),
         name: "New Chat",
         systemPrompt: inputSystemPrompt,
-        messages: [],
+        messages: [defaultStartingMessage],
       },
-    ];
+    ]);
     await tick();
   }
 
@@ -346,7 +364,7 @@
     const decoder = new TextDecoder("utf-8");
 
     return new Promise<string>((resolve, reject) => {
-      processStream(reader, decoder, resolve, reject).catch(reject);
+      processStreamForTitle(reader, decoder, resolve, reject).catch(reject);
     });
   }
 
@@ -365,8 +383,7 @@
 
   function newChatButtonPressed() {
     createNewChat(defaultSystemPrompt);
-    const newChat: Chat = chats[chats.length - 1];
-    addMessage(newChat.uuid, defaultStartingMessage);
+    const newChat: Chat = get(chats)[get(chats).length - 1];
     selectChat(newChat);
   }
 </script>
@@ -415,14 +432,16 @@
 
     {#if isSidebarVisible}
       <!-- Select Chats -->
-      {#each chats as chat (chat.uuid)}
+      {#each $chats as chat (chat.uuid)}
         <button
-          class="sidebar-item {selectedChat.uuid === chat.uuid ? 'active' : ''}"
+          class="sidebar-item {$selectedChat.uuid === chat.uuid
+            ? 'active'
+            : ''}"
           on:click={() => selectChat(chat)}
           on:keydown={(e) =>
             (e.key === "Enter" || e.key === " ") && selectChat(chat)}
           role="tab"
-          aria-selected={selectedChat.uuid === chat.uuid}
+          aria-selected={$selectedChat.uuid === chat.uuid}
         >
           {chat.name}
         </button>
@@ -433,10 +452,10 @@
   <!-- Chat Interface -->
   <div class="chat">
     <div class="messages">
-      {#if selectedChat.messages.length === 0}
+      {#if $selectedChat.messages.length === 0}
         <p>No messages yet.</p>
       {/if}
-      {#each selectedChat.messages as message}
+      {#each $selectedChat.messages as message}
         <div class="message {message.role.toLowerCase()}">
           {#if message.role === "Assistant"}
             <Markdown
