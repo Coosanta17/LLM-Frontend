@@ -83,12 +83,19 @@
         disableMessage = true;
       }
     } catch (error) {
-      console.error("Error checking API status:", error);
+      console.error("api offline.\n" + error);
       disableMessage = true;
     }
   }
 
+  function regularApiStatusCheck() {
+    setInterval(() => {
+      checkApiStatus();
+    }, 20000); // 20 seconds
+  }
+
   checkApiStatus();
+  regularApiStatusCheck();
 
   async function selectChat(chat: Chat) {
     const foundChat = get(chats).find((c) => c.uuid === chat.uuid);
