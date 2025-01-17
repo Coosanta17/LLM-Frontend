@@ -96,6 +96,8 @@
   }
 
   async function sendMessage() {
+    const chatIndex = findChatIndexFromId(get(selectedChat).uuid);
+
     if (isLoading) return;
     if (newMessage.trim()) {
       addMessage(get(selectedChat).uuid, {
@@ -104,22 +106,30 @@
       });
 
       newMessage = "";
+
+      let focusedChat = get(selectedChat);
       await tick();
       scrollToBottom();
-      await runAssistantResponse();
+      await runAssistantResponse(focusedChat);
+
+      const updatedChat = get(chats)[chatIndex];
 
       if (
-        get(selectedChat).messages.length >= 3 &&
+        updatedChat.messages.length >= 3 &&
         ["New Chat", "New Conversation", "", "Generating title..."].includes(
-          get(selectedChat).name,
+          updatedChat.name,
         )
       ) {
-        selectedChat.update((currentChat) => ({
-          ...currentChat,
-          name: "Generating title...",
-        }));
+        chats.update((currentChats) => {
+          const updatedChats = [...currentChats];
+          updatedChats[chatIndex] = {
+            ...updatedChats[chatIndex],
+            name: "Generating title...",
+          };
+          return updatedChats;
+        });
 
-        await setTitle(get(selectedChat).uuid);
+        await setTitle(focusedChat.uuid);
       }
     }
   }
@@ -129,9 +139,9 @@
     const currentChat = get(chats)[chatIndex];
 
     if (chatIndex === -1) {
-    console.error("Unable to set title - Chat doesn't exist");
-    return;
-  }
+      console.error("Unable to set title - Chat doesn't exist");
+      return;
+    }
 
     let generatedTitle = await generateTitle(currentChat);
 
@@ -183,7 +193,7 @@
     return get(chats).findIndex((c) => c.uuid === id);
   }
 
-  async function runAssistantResponse() {
+  async function runAssistantResponse(focusedChat: Chat) {
     const url = `${apiURL}complete?type=conversation`;
 
     isLoading = true;
@@ -194,7 +204,7 @@
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(get(selectedChat)),
+        body: JSON.stringify(focusedChat),
       });
 
       if (!response.body) {
@@ -205,12 +215,12 @@
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
 
-      addMessage(get(selectedChat).uuid, {
+      addMessage(focusedChat.uuid, {
         role: "Assistant",
         content: "",
       });
 
-      const activeMessageIndex = get(selectedChat).messages.length - 1;
+      const activeMessageIndex = focusedChat.messages.length + 1;
 
       let buffer = ""; // Buffer for accumulating data between chunks
 
@@ -229,9 +239,26 @@
             const chunk = line.slice(5);
 
             if (isGenerating) {
-              selectedChat.update((currentChat) => {
-                if (currentChat) currentChat.messages.pop();
-                return currentChat;
+              chats.update((currentChats) => {
+                const chatIndex = findChatIndexFromId(focusedChat.uuid);
+                const updatedChats = [...currentChats];
+                const updatedMessage = {
+                  ...updatedChats[chatIndex].messages[activeMessageIndex],
+                  content: "",
+                };
+
+                updatedChats[chatIndex] = {
+                  ...updatedChats[chatIndex],
+                  messages: [
+                    ...updatedChats[chatIndex].messages.slice(
+                      0,
+                      activeMessageIndex,
+                    ),
+                    updatedMessage,
+                  ],
+                };
+
+                return updatedChats;
               });
 
               isGenerating = false;
@@ -239,9 +266,9 @@
 
             if (chunk === "") {
               // If the chunk is blank (e.g., `data:` followed by no content), treat it as a newline
-              appendMessage(get(selectedChat).uuid, activeMessageIndex, "\n");
+              appendMessage(focusedChat.uuid, activeMessageIndex, "\n");
             } else {
-              appendMessage(get(selectedChat).uuid, activeMessageIndex, chunk);
+              appendMessage(focusedChat.uuid, activeMessageIndex, chunk);
             }
           }
 
@@ -249,7 +276,7 @@
             const eventChunk = line.slice(6);
 
             if (eventChunk === "generating") {
-              addMessage(get(selectedChat).uuid, {
+              addMessage(focusedChat.uuid, {
                 role: "System",
                 content: "Generating response...",
               });
@@ -270,18 +297,18 @@
       if (buffer.startsWith("data:")) {
         const chunk = buffer.slice(5);
         if (chunk === "") {
-          appendMessage(get(selectedChat).uuid, activeMessageIndex, "\n");
+          appendMessage(focusedChat.uuid, activeMessageIndex, "\n");
         } else {
-          appendMessage(get(selectedChat).uuid, activeMessageIndex, chunk);
+          appendMessage(focusedChat.uuid, activeMessageIndex, chunk);
         }
         scrollToBottom();
       }
     } catch (error) {
-        console.error("Error fetching data from API:", error);
-        addMessage(get(selectedChat).uuid, {
-          role: "System",
-          content: `An error occurred while processing your request.\n${error}`,
-        });
+      console.error("Error fetching data from API:", error);
+      addMessage(focusedChat.uuid, {
+        role: "System",
+        content: `An error occurred while processing your request.\n${error}`,
+      });
     } finally {
       isGenerating = false;
       isLoading = false;
