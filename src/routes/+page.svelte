@@ -60,12 +60,35 @@
   let isSidebarVisible = true;
   let isGenerating = false;
   let isLoading = false;
+  let disableMessage = true;
 
   if (get(chats).length === 0) {
     createNewChat(defaultSystemPrompt);
   }
 
   selectedChat.set(get(chats)[get(chats).length - 1]);
+
+  async function checkApiStatus() {
+    try {
+      const response = await fetch(`${apiURL}check`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        disableMessage = false;
+      } else {
+        disableMessage = true;
+      }
+    } catch (error) {
+      console.error("Error checking API status:", error);
+      disableMessage = true;
+    }
+  }
+
+  checkApiStatus();
 
   async function selectChat(chat: Chat) {
     const foundChat = get(chats).find((c) => c.uuid === chat.uuid);
@@ -99,6 +122,11 @@
     const chatIndex = findChatIndexFromId(get(selectedChat).uuid);
 
     if (isLoading) return;
+
+    isLoading = true;
+    await checkApiStatus();
+
+    if (disableMessage) return;
     if (newMessage.trim()) {
       addMessage(get(selectedChat).uuid, {
         role: "User",
@@ -196,8 +224,6 @@
   async function runAssistantResponse(focusedChat: Chat) {
     const url = `${apiURL}complete?type=conversation`;
 
-    isLoading = true;
-
     try {
       const response = await fetch(url, {
         method: "POST",
@@ -220,7 +246,7 @@
         content: "",
       });
 
-      const activeMessageIndex = focusedChat.messages.length + 1;
+      const activeMessageIndex = focusedChat.messages.length;
 
       let buffer = ""; // Buffer for accumulating data between chunks
 
@@ -242,20 +268,11 @@
               chats.update((currentChats) => {
                 const chatIndex = findChatIndexFromId(focusedChat.uuid);
                 const updatedChats = [...currentChats];
-                const updatedMessage = {
-                  ...updatedChats[chatIndex].messages[activeMessageIndex],
-                  content: "",
-                };
 
+                // Remove the most recent message
                 updatedChats[chatIndex] = {
                   ...updatedChats[chatIndex],
-                  messages: [
-                    ...updatedChats[chatIndex].messages.slice(
-                      0,
-                      activeMessageIndex,
-                    ),
-                    updatedMessage,
-                  ],
+                  messages: updatedChats[chatIndex].messages.slice(0, -1),
                 };
 
                 return updatedChats;
@@ -504,7 +521,7 @@
       />
       <button
         on:click={sendMessage}
-        disabled={isLoading}
+        disabled={isLoading || disableMessage}
         class:is-loading={isLoading}>Send</button
       >
     </div>
