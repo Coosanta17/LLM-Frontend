@@ -61,6 +61,7 @@
   let isGenerating = false;
   let isLoading = false;
   let disableMessage = true;
+  let optionsMenuChatId: string | null = null;
 
   if (get(chats).length === 0) {
     createNewChat(defaultSystemPrompt);
@@ -90,8 +91,10 @@
 
   function regularApiStatusCheck() {
     setInterval(() => {
-      checkApiStatus();
-    }, 20000); // 20 seconds
+      if (disableMessage) {
+        checkApiStatus();
+      }
+    }, 10000); // 10 seconds
   }
 
   checkApiStatus();
@@ -383,19 +386,6 @@
     reject(new Error("No title received."));
   }
 
-  async function createNewChat(inputSystemPrompt: string) {
-    chats.update((currentChats) => [
-      ...currentChats,
-      {
-        uuid: uuid(),
-        name: "New Chat",
-        systemPrompt: inputSystemPrompt,
-        messages: [defaultStartingMessage],
-      },
-    ]);
-    await tick();
-  }
-
   async function generateTitle(conversation: Chat): Promise<string> {
     const url = `${apiURL}completion-title`;
 
@@ -432,10 +422,73 @@
     isSidebarVisible = !isSidebarVisible;
   }
 
+  function setSelectedChatToMostRecentChat() {
+    selectedChat.set(get(chats)[get(chats).length - 1]);
+  }
+
+  async function createNewChat(inputSystemPrompt: string) {
+    chats.update((currentChats) => [
+      ...currentChats,
+      {
+        uuid: uuid(),
+        name: "New Chat",
+        systemPrompt: inputSystemPrompt,
+        messages: [defaultStartingMessage],
+      },
+    ]);
+    await tick();
+  }
+
+  async function deleteChat(uuid: string) {
+    const chatIndex = findChatIndexFromId(uuid);
+    if (chatIndex === -1) {
+      console.error("Unable to delete chat - Chat doesn't exist");
+      return;
+    }
+
+    chats.update((currentChats) => {
+      const updatedChats = [...currentChats];
+      updatedChats.splice(chatIndex, 1);
+      return updatedChats;
+    });
+
+    setSelectedChatToMostRecentChat();
+
+    if (get(chats).length === 0) {
+      createNewChat(defaultSystemPrompt);
+    }
+
+    await tick();
+    optionsMenuChatId = null;
+  }
+
+  async function renameChat(chatId: string) {
+    const newName = prompt("Enter new chat name:");
+    if (newName) {
+      chats.update((currentChats) => {
+        const chatIndex = currentChats.findIndex(
+          (chat) => chat.uuid === chatId,
+        );
+        if (chatIndex !== -1) {
+          currentChats[chatIndex] = {
+            ...currentChats[chatIndex],
+            name: newName,
+          };
+        }
+        return currentChats;
+      });
+    }
+    optionsMenuChatId = null;
+  }
+
   function newChatButtonPressed() {
     createNewChat(defaultSystemPrompt);
     const newChat: Chat = get(chats)[get(chats).length - 1];
     selectChat(newChat);
+  }
+
+  function toggleOptionsMenu(chatId: string) {
+    optionsMenuChatId = optionsMenuChatId === chatId ? null : chatId;
   }
 </script>
 
@@ -484,18 +537,51 @@
     {#if isSidebarVisible}
       <!-- Select Chats -->
       {#each $chats as chat (chat.uuid)}
-        <button
-          class="sidebar-item {$selectedChat.uuid === chat.uuid
-            ? 'active'
-            : ''}"
-          on:click={() => selectChat(chat)}
-          on:keydown={(e) =>
-            (e.key === "Enter" || e.key === " ") && selectChat(chat)}
-          role="tab"
-          aria-selected={$selectedChat.uuid === chat.uuid}
-        >
-          {chat.name}
-        </button>
+        <div class="sidebar-item-container">
+          <button
+            class="sidebar-item {$selectedChat.uuid === chat.uuid
+              ? 'active'
+              : ''}"
+            on:click={() => selectChat(chat)}
+            on:keydown={(e) =>
+              (e.key === "Enter" || e.key === " ") && selectChat(chat)}
+            role="tab"
+            aria-selected={$selectedChat.uuid === chat.uuid}
+          >
+            {chat.name}
+          </button>
+          <button
+            class="more-options-button"
+            on:click={() => toggleOptionsMenu(chat.uuid)}
+          >
+            <img
+              src="{base}/icons/more.svg"
+              alt="More Options"
+              title="More Options"
+              style="width: 20px; height: 20px;"
+            />
+          </button>
+          {#if chat.uuid === optionsMenuChatId}
+            <div class="options-menu">
+              <button on:click={() => renameChat(chat.uuid)}
+                ><img
+                  src="{base}/icons/edit.svg"
+                  alt="Rename Chat"
+                  title="Rename Chat"
+                  style="width: 20px; height: 20px;"
+                /></button
+              >
+              <button on:click={() => deleteChat(chat.uuid)}
+                ><img
+                  src="{base}/icons/diediediedie.svg"
+                  alt="Delete Chat"
+                  title="Delete Chat"
+                  style="width: 20px; height: 20px;"
+                /></button
+              >
+            </div>
+          {/if}
+        </div>
       {/each}
     {/if}
   </div>
@@ -588,6 +674,42 @@
     display: flex;
     justify-content: space-between;
     margin: 8px;
+  }
+
+  .sidebar-item-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .more-options-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+  }
+
+  .options-menu {
+    position: absolute;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+  }
+
+  .options-menu button {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .options-menu button:hover {
+    background-color: #f0f0f0;
   }
 
   .new-chat button {
