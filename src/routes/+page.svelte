@@ -557,7 +557,7 @@
 
     {#if isSidebarVisible}
       <!-- Select Chats -->
-      {#each $chats as chat (chat.uuid)}
+      {#each [...$chats].reverse() as chat (chat.uuid)}
         <div class="sidebar-item-container">
           <button
             class="sidebar-item {$selectedChat.uuid === chat.uuid
