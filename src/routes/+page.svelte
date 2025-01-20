@@ -100,6 +100,22 @@
   checkApiStatus();
   regularApiStatusCheck();
 
+  function clickOutside(node: HTMLElement) {
+    const handleClick = (event: MouseEvent) => {
+      if (!node.contains(event.target as Node)) {
+        optionsMenuChatId = null;
+      }
+    };
+
+    document.addEventListener("click", handleClick, true);
+
+    return {
+      destroy() {
+        document.removeEventListener("click", handleClick, true);
+      },
+    };
+  }
+
   async function selectChat(chat: Chat) {
     const foundChat = get(chats).find((c) => c.uuid === chat.uuid);
     if (foundChat) {
@@ -567,7 +583,7 @@
             />
           </button>
           {#if chat.uuid === optionsMenuChatId}
-            <div class="options-menu">
+            <div class="options-menu" use:clickOutside>
               <button on:click={() => renameChat(chat.uuid)}>
                 <img
                   src="{base}/icons/edit.svg"
