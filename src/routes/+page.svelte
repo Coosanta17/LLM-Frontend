@@ -440,6 +440,11 @@
   }
 
   async function deleteChat(uuid: string) {
+    const confirmation = window.confirm("Are you sure you want to delete this chat?\nIt will be gone forever!");
+    if (!confirmation) {
+      return;
+    }
+
     const chatIndex = findChatIndexFromId(uuid);
     if (chatIndex === -1) {
       console.error("Unable to delete chat - Chat doesn't exist");
