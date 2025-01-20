@@ -563,22 +563,24 @@
           </button>
           {#if chat.uuid === optionsMenuChatId}
             <div class="options-menu">
-              <button on:click={() => renameChat(chat.uuid)}
-                ><img
+              <button on:click={() => renameChat(chat.uuid)}>
+                <img
                   src="{base}/icons/edit.svg"
                   alt="Rename Chat"
                   title="Rename Chat"
                   style="width: 20px; height: 20px;"
-                /></button
-              >
-              <button on:click={() => deleteChat(chat.uuid)}
-                ><img
+                />
+                Rename
+              </button>
+              <button on:click={() => deleteChat(chat.uuid)}>
+                <img
                   src="{base}/icons/diediediedie.svg"
                   alt="Delete Chat"
                   title="Delete Chat"
                   style="width: 20px; height: 20px;"
-                /></button
-              >
+                />
+                Delete
+              </button>
             </div>
           {/if}
         </div>
@@ -631,7 +633,7 @@
 
   .container {
     display: grid;
-    grid-template-columns: 15% 1fr;
+    grid-template-columns: 300px 1fr;
     height: 100vh;
     width: 100vw;
     font-family: Arial, sans-serif;
@@ -640,7 +642,7 @@
   }
 
   .container.sidebar-hidden {
-    grid-template-columns: 74px 1fr;
+    grid-template-columns: 75px 1fr;
   }
 
   .sidebar {
@@ -679,18 +681,34 @@
   .sidebar-item-container {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
+    position: relative;
+  }
+
+  .sidebar-item {
+    text-align: center;
+    flex: 0 0 210px;
+    height: 50px;
+    flex-grow: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .more-options-button {
     background: none;
     border: none;
     cursor: pointer;
-    padding: 5px;
+    padding: 0;
+    margin-left: 0px;
+    flex: 0 0 20px;
+    height: 50px;
+    flex-grow: 0;
   }
 
   .options-menu {
     position: absolute;
+    right: 0;
     background-color: white;
     border: 1px solid #ddd;
     border-radius: 5px;
