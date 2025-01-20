@@ -456,7 +456,9 @@
   }
 
   async function deleteChat(uuid: string) {
-    const confirmation = window.confirm("Are you sure you want to delete this chat?\nIt will be gone forever!");
+    const confirmation = window.confirm(
+      "Are you sure you want to delete this chat?\nIt will be gone forever!",
+    );
     if (!confirmation) {
       return;
     }
@@ -653,6 +655,7 @@
   }
 
   .container {
+    background-color: white;
     display: grid;
     grid-template-columns: 300px 1fr;
     height: 100vh;
@@ -696,7 +699,8 @@
   .sidebar-actions-menu {
     display: flex;
     justify-content: space-between;
-    margin: 8px;
+    margin: 5px;
+    margin-bottom: 8px;
   }
 
   .sidebar-item-container {
