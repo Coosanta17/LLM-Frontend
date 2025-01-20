@@ -457,9 +457,10 @@
 
   async function deleteChat(uuid: string) {
     const confirmation = window.confirm(
-      "Are you sure you want to delete this chat?\nIt will be gone forever!",
+      "Are you sure you want to delete this chat?\nIt will be gone forever!"
     );
     if (!confirmation) {
+      toggleOptionsMenu(uuid);
       return;
     }
 
@@ -468,6 +469,14 @@
       console.error("Unable to delete chat - Chat doesn't exist");
       return;
     }
+
+    // Adds super fancy deletion animation
+    const chatElement = document.querySelector(`.sidebar-item-container[data-uuid="${uuid}"]`);
+    if (chatElement) {
+      chatElement.classList.add('deleting');
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     chats.update((currentChats) => {
       const updatedChats = [...currentChats];
@@ -560,7 +569,7 @@
     {#if isSidebarVisible}
       <!-- Select Chats -->
       {#each [...$chats].reverse() as chat (chat.uuid)}
-        <div class="sidebar-item-container">
+        <div class="sidebar-item-container" data-uuid={chat.uuid}>
           <button
             class="sidebar-item {$selectedChat.uuid === chat.uuid
               ? 'active'
@@ -708,6 +717,21 @@
     align-items: center;
     justify-content: center;
     position: relative;
+  }
+
+  .sidebar-item-container.deleting {
+    animation: fadeOut 0.5s forwards;
+  }
+
+  @keyframes fadeOut {
+    from {
+      transform: scale(1);
+      opacity: 1;
+    }
+    to {
+      transform: scale(0.1);
+      opacity: 0;
+    }
   }
 
   .sidebar-item {
