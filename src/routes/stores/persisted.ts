@@ -7,7 +7,8 @@ const initialChat: Chat = {
     uuid: '00000000-0000-0000-0000-000000000000',
     name: "Debug Chat",
     systemPrompt: "You are an unhelpful, useless ai that answers every prompt with \'Something's gone wrong\'.",
-    messages: []
+    messages: [],
+    newMessage: "",
 }
 
 export const chats = persisted<Chat[]>('chats', [])

@@ -11,4 +11,8 @@ export type Chat = {
     name: string;
     systemPrompt: string;
     messages: Message[];
+    isLoading?: boolean;
+    isGenerating?: boolean;
+    isError?: boolean;
+    newMessage: string;
 };

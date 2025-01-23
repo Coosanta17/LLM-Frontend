@@ -56,10 +56,7 @@
 
   const apiURL = "https://api.coosanta.net/llm/v1/";
 
-  let newMessage = "";
   let isSidebarVisible = true;
-  let isGenerating = false;
-  let isLoading = false;
   let disableMessage = true;
   let optionsMenuChatId: string | null = null;
 
@@ -116,6 +113,23 @@
     };
   }
 
+  async function updateChat(chatId: string, newValues: Partial<Chat>) {
+    chats.update((currentChats) => {
+      const chatIndex = findChatIndexFromId(chatId);
+
+      if (chatIndex !== -1) {
+        currentChats[chatIndex] = {
+          ...currentChats[chatIndex],
+          ...newValues,
+        };
+      } else {
+        console.error("Unable to update chat - Chat doesn't exist");
+      }
+
+      return currentChats;
+    });
+  }
+
   async function selectChat(chat: Chat) {
     const foundChat = get(chats).find((c) => c.uuid === chat.uuid);
     if (foundChat) {
@@ -130,7 +144,7 @@
 
   async function addMessage(chatId: string, message: Message) {
     chats.update((currentChats) => {
-      const chatIndex = currentChats.findIndex((chat) => chat.uuid === chatId);
+      const chatIndex = findChatIndexFromId(chatId);
 
       if (chatIndex !== -1) {
         currentChats[chatIndex] = {
@@ -145,21 +159,25 @@
   }
 
   async function sendMessage() {
-    const chatIndex = findChatIndexFromId(get(selectedChat).uuid);
+    const chatUUID = get(selectedChat).uuid;
+    const chatIndex = findChatIndexFromId(chatUUID);
 
-    if (isLoading) return;
-
-    isLoading = true;
     await checkApiStatus();
 
     if (disableMessage) return;
-    if (newMessage.trim()) {
+
+    if (get(selectedChat).isLoading) return;
+
+    selectedChat.update((chat) => ({ ...chat, isLoading: true }));
+
+    const newMessage = get(chats)[chatIndex].newMessage.trim();
+    updateChat(chatUUID, { newMessage: "" });
+
+    if (newMessage) {
       addMessage(get(selectedChat).uuid, {
         role: "User",
         content: newMessage,
       });
-
-      newMessage = "";
 
       let focusedChat = get(selectedChat);
       await tick();
@@ -199,14 +217,7 @@
 
     let generatedTitle = await generateTitle(currentChat);
 
-    chats.update((currentChats) => {
-      const updatedChats = [...currentChats];
-      updatedChats[chatIndex] = {
-        ...updatedChats[chatIndex],
-        name: generatedTitle,
-      };
-      return updatedChats;
-    });
+    updateChat(id, { name: generatedTitle });
   }
 
   function appendMessage(
@@ -249,6 +260,7 @@
 
   async function runAssistantResponse(focusedChat: Chat) {
     const url = `${apiURL}complete?type=conversation`;
+    const chatIndex = findChatIndexFromId(focusedChat.uuid);
 
     try {
       const response = await fetch(url, {
@@ -290,9 +302,8 @@
           if (line.startsWith("data:")) {
             const chunk = line.slice(5);
 
-            if (isGenerating) {
+            if (get(chats)[chatIndex].isGenerating) {
               chats.update((currentChats) => {
-                const chatIndex = findChatIndexFromId(focusedChat.uuid);
                 const updatedChats = [...currentChats];
 
                 // Remove the most recent message
@@ -304,11 +315,11 @@
                 return updatedChats;
               });
 
-              isGenerating = false;
+              updateChat(focusedChat.uuid, { isGenerating: false });
             }
 
             if (chunk === "") {
-              // If the chunk is blank (e.g., `data:` followed by no content), treat it as a newline
+              // If the chunk is blank, treat it as a newline
               appendMessage(focusedChat.uuid, activeMessageIndex, "\n");
             } else {
               appendMessage(focusedChat.uuid, activeMessageIndex, chunk);
@@ -323,7 +334,7 @@
                 role: "System",
                 content: "Generating response...",
               });
-              isGenerating = true;
+              updateChat(focusedChat.uuid, { isGenerating: true });
               console.debug("Server is generating a response...");
             } else if (eventChunk === "ping") {
               console.debug("Received ping from server.");
@@ -353,8 +364,10 @@
         content: `An error occurred while processing your request.\n${error}`,
       });
     } finally {
-      isGenerating = false;
-      isLoading = false;
+      updateChat(focusedChat.uuid, {
+        isLoading: false,
+        isGenerating: false,
+      });
     }
   }
 
@@ -450,6 +463,7 @@
         name: "New Chat",
         systemPrompt: inputSystemPrompt,
         messages: [defaultStartingMessage],
+        newMessage: "",
       },
     ]);
     await tick();
@@ -457,7 +471,7 @@
 
   async function deleteChat(uuid: string) {
     const confirmation = window.confirm(
-      "Are you sure you want to delete this chat?\nIt will be gone forever!"
+      "Are you sure you want to delete this chat?\nIt will be gone forever!",
     );
     if (!confirmation) {
       toggleOptionsMenu(uuid);
@@ -471,9 +485,11 @@
     }
 
     // Adds super fancy deletion animation
-    const chatElement = document.querySelector(`.sidebar-item-container[data-uuid="${uuid}"]`);
+    const chatElement = document.querySelector(
+      `.sidebar-item-container[data-uuid="${uuid}"]`,
+    );
     if (chatElement) {
-      chatElement.classList.add('deleting');
+      chatElement.classList.add("deleting");
     }
 
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -497,18 +513,7 @@
   async function renameChat(chatId: string) {
     const newName = prompt("Enter new chat name:");
     if (newName) {
-      chats.update((currentChats) => {
-        const chatIndex = currentChats.findIndex(
-          (chat) => chat.uuid === chatId,
-        );
-        if (chatIndex !== -1) {
-          currentChats[chatIndex] = {
-            ...currentChats[chatIndex],
-            name: newName,
-          };
-        }
-        return currentChats;
-      });
+      updateChat(chatId, { name: newName });
     }
     optionsMenuChatId = null;
   }
@@ -642,14 +647,14 @@
     <div class="input-container">
       <input
         type="text"
-        bind:value={newMessage}
+        bind:value={$selectedChat.newMessage}
         placeholder="Type a message..."
         on:keydown={(e) => e.key === "Enter" && sendMessage()}
       />
       <button
         on:click={sendMessage}
-        disabled={isLoading || disableMessage}
-        class:is-loading={isLoading}>Send</button
+        disabled={$selectedChat.isLoading || disableMessage}
+        class:is-loading={$selectedChat.isLoading}>Send</button
       >
     </div>
   </div>
@@ -717,6 +722,9 @@
     align-items: center;
     justify-content: center;
     position: relative;
+    transition:
+      transform 0.3s ease,
+      opacity 0.3s ease;
   }
 
   .sidebar-item-container.deleting {
