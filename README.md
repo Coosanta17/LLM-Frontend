@@ -6,7 +6,11 @@ See it at https://chat.coosanta.net/
 
 ***
 
-This is a frontend "example" of an API that I created from scratch in Java (see more [here (LLM API Backend)](https://github.com/Coosanta17/LLM-API)) to learn about reactive web-development and Svelte. Due to this being a learning journey the code is a complete and utter mess, and as programmers would call it - "Spaghetti Code". I plan on fixing this in the hopefully not too distant future.
+This is a frontend "example" of an API that I created from scratch in Java (see more [here (LLM API Backend)](https://github.com/Coosanta17/LLM-API)) to learn about reactive web-development and Svelte. 
+
+Due to this being a learning journey the code is a complete and utter mess, and as programmers would call it - "Spaghetti Code". I plan on fixing this in the hopefully not too distant future.
+
+***
 
 Because I am hosting this on limited resources, the AI may (and probably will) take a long time to respond, please be patient!
 
