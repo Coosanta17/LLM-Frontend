@@ -1,8 +1,16 @@
-# Web based ai chat thing
+# AI Chat WebPage
 
-Frontend for [LLM-API](https://github.com/Coosanta17/LLM-API) using Svelte
+> *Frontend for [LLM-API](https://github.com/Coosanta17/LLM-API) using Svelte*
 
-See at https://chat.coosanta.net/ 
+See it at https://chat.coosanta.net/ 
+
+***
+
+This is a frontend "example" of an API that I created (see more [here](https://github.com/Coosanta17/LLM-API)) to learn about reactive web-development and Svelte. Due to this being a learning journey the code is a complete and utter mess, and as programmers would call it - "Spaghetti Code". I plan on fixing this in the hopefully not too distant future.
+
+Because I am hosting this on limited resources, the AI may (and probably will) take a long time to respond, please be patient!
+
+If you find any errors anywhere please feel free to make an [issue](https://github.com/Coosanta17/LLM-Frontend/issues)
 
 ## Credits
 
