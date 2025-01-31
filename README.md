@@ -11,3 +11,4 @@ See at https://chat.coosanta.net/
 - "Morehorizontal SVG Vector": https://www.svgrepo.com/svg/503058/morehorizontal by Yandex (MLP Licence)
 - "Edit SVG Vector": https://www.svgrepo.com/svg/503019/edit by Yandex (MLP Licence)
 - "Trash SVG Vector": https://www.svgrepo.com/svg/503111/trash by Yandex (MLP Licence)
+- "Refresh SVG Vector": https://www.svgrepo.com/svg/503081/refresh by Yandex (MLP Licence)
