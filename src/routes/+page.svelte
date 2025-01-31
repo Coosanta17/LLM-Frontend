@@ -592,6 +592,9 @@
 
   async function refreshMessage(uuid: string) {
     const index = findChatIndexFromId(uuid);
+    await checkApiStatus();
+
+    if (disableMessage || get(chats)[index].isGenerating || get(chats)[index].isLoading) return;
 
     selectedChat.update((chat) => ({ ...chat, isLoading: true }));
     await checkApiStatus();
